@@ -22,10 +22,22 @@ export function initGallery(config) {
 }
 
 export async function submitToGallery(canvasEl, name, message) {
-  if (!db) return null;
+  if (!db) {
+    console.error('Gallery: db not initialized');
+    throw new Error('db not initialized');
+  }
 
-  // Convert canvas to a data URL (compressed JPEG for size)
-  const imageData = canvasEl.toDataURL('image/jpeg', 0.7);
+  // Resize to max 400px wide for Firestore size limits
+  const maxW = 400;
+  const scale = Math.min(1, maxW / canvasEl.width);
+  const w = Math.floor(canvasEl.width * scale);
+  const h = Math.floor(canvasEl.height * scale);
+  const tmp = document.createElement('canvas');
+  tmp.width = w;
+  tmp.height = h;
+  const ctx = tmp.getContext('2d');
+  ctx.drawImage(canvasEl, 0, 0, w, h);
+  const imageData = tmp.toDataURL('image/jpeg', 0.5);
 
   const doc = await addDoc(collection(db, 'gallery'), {
     name: name || 'anonymous',
