@@ -920,9 +920,15 @@ function togglePhysics() {
     physics.addStrokes(currentScene().strokes);
     physics.start();
 
-    // Physics canvas on top
-    const physCanvas = document.getElementById('physics-canvas');
-    if (physCanvas) physCanvas.style.zIndex = '3';
+    // Clear drawing canvas so there's no double layer
+    const drawCanvas = document.getElementById('drawing-canvas');
+    if (drawCanvas) {
+      const dCtx = drawCanvas.getContext('2d');
+      const w = drawCanvas.width / window.devicePixelRatio;
+      const h = drawCanvas.height / window.devicePixelRatio;
+      dCtx.clearRect(0, 0, w, h);
+    }
+
     startPhysicsRender();
   } else {
     physics.stop();
@@ -931,10 +937,10 @@ function togglePhysics() {
 
     const physCanvas = document.getElementById('physics-canvas');
     if (physCanvas) {
-      physCanvas.style.zIndex = '1';
       const ctx = physCanvas.getContext('2d');
       ctx.clearRect(0, 0, physCanvas.width / window.devicePixelRatio, physCanvas.height / window.devicePixelRatio);
     }
+    redrawCanvas();
   }
 
   // Re-render just the sidebar buttons
