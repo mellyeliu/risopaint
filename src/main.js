@@ -12,7 +12,7 @@ const state = {
   selectedStamp: null,
   scenes: [createScene('Scene 1')],
   currentSceneIndex: 0,
-  physicsOn: true,
+  physicsOn: false,
   isDrawing: false,
   currentStroke: null,
   pixelation: 1,            // 1 = smooth, 8 = very chunky
@@ -385,8 +385,7 @@ function bindEvents() {
   document.querySelectorAll('.color-row-item').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
+      render();
     });
   });
 
@@ -394,8 +393,7 @@ function bindEvents() {
   document.querySelectorAll('.color-swatch').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
+      render();
     });
   });
 
@@ -410,13 +408,7 @@ function bindEvents() {
         state.tool = 'stamp';
         state.selectedStamp = idx;
       }
-      // Update active states without full re-render
-      document.querySelectorAll('.stamp-btn').forEach((b, i) => {
-        b.classList.toggle('active', state.tool === 'stamp' && state.selectedStamp === i);
-      });
-      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
-        b.classList.toggle('active', state.tool === b.dataset.tool);
-      });
+      render();
     });
   });
 
@@ -425,12 +417,7 @@ function bindEvents() {
     el.addEventListener('click', () => {
       state.tool = el.dataset.tool;
       state.selectedStamp = null;
-      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
-        b.classList.toggle('active', state.tool === b.dataset.tool);
-      });
-      document.querySelectorAll('.stamp-btn').forEach(b => {
-        b.classList.remove('active');
-      });
+      render();
     });
   });
 
@@ -920,19 +907,13 @@ function togglePhysics() {
     physics.addStrokes(currentScene().strokes);
     physics.start();
 
-    // Clear drawing canvas so there's no double layer
-    const drawCanvas = document.getElementById('drawing-canvas');
-    if (drawCanvas) {
-      const dCtx = drawCanvas.getContext('2d');
-      const w = drawCanvas.width / window.devicePixelRatio;
-      const h = drawCanvas.height / window.devicePixelRatio;
-      dCtx.clearRect(0, 0, w, h);
-    }
-
+    // Hide drawing canvas, show physics canvas
+    document.getElementById('drawing-canvas').style.opacity = '0';
     startPhysicsRender();
   } else {
     physics.stop();
     physics.clear();
+    document.getElementById('drawing-canvas').style.opacity = '1';
     cancelAnimationFrame(physicsAnimFrame);
 
     const physCanvas = document.getElementById('physics-canvas');
@@ -940,7 +921,6 @@ function togglePhysics() {
       const ctx = physCanvas.getContext('2d');
       ctx.clearRect(0, 0, physCanvas.width / window.devicePixelRatio, physCanvas.height / window.devicePixelRatio);
     }
-    redrawCanvas();
   }
 
   // Re-render just the sidebar buttons
@@ -1148,7 +1128,6 @@ function saveState() {
       pixelation: state.pixelation,
       darkMode: state.darkMode,
       fullscreen: state.fullscreen,
-      physicsOn: state.physicsOn,
       tool: state.tool,
     };
     localStorage.setItem('risopaint-state', JSON.stringify(data));
@@ -1167,7 +1146,6 @@ function loadState() {
     if (data.pixelation != null) state.pixelation = data.pixelation;
     if (data.darkMode != null) state.darkMode = data.darkMode;
     if (data.fullscreen != null) state.fullscreen = data.fullscreen;
-    if (data.physicsOn != null) state.physicsOn = data.physicsOn;
     if (data.tool) state.tool = data.tool;
   } catch (e) {}
 }
@@ -1176,12 +1154,6 @@ function loadState() {
 preloadStamps();
 loadState();
 render();
-
-// Start physics if it should be on
-if (state.physicsOn) {
-  state.physicsOn = false; // togglePhysics will flip it back
-  togglePhysics();
-}
 
 // Auto-save on every change
 const _origRedraw = redrawCanvas;
