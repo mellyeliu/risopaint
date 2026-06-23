@@ -19,7 +19,7 @@ const state = {
   fontIndex: 0,              // Velvelyne
   bgIndex: 0,                // cycles through bg patterns
   darkMode: false,
-  fullscreen: false,
+  fullscreen: 0,  // 0 = normal, 1 = full bleed
   zoom: 1,
 };
 
@@ -28,8 +28,7 @@ const fonts = [
 ];
 
 const bgPatterns = [
-  { name: '⋆', char: '⋆' },
-  { name: '—', char: null },
+  { name: '✿', char: '✿' },
 ];
 
 const GRID_SIZE = 16; // px per grid cell
@@ -78,19 +77,19 @@ function render() {
   const font = fonts[state.fontIndex];
   const sizeStyle = font.sizeBoost ? `font-size: ${13 + font.sizeBoost}px` : '';
 
+  app.style.padding = state.fullscreen === 1 ? '0' : '14px';
   app.innerHTML = `
-    ${state.fullscreen || state.darkMode ? '' : '<div class="starfish-bg" id="starfish-bg"></div>'}
-    <div class="editor-frame ${state.darkMode ? 'dark' : ''} ${state.fullscreen ? 'fullscreen' : ''}" style="font-family: ${font.family}; ${sizeStyle}">
+    ${state.fullscreen === 1 ? '' : `<div class="starfish-bg ${state.darkMode ? 'dark-stars' : ''}" id="starfish-bg"></div>`}
+    <div class="editor-frame ${state.darkMode ? 'dark' : ''} ${state.fullscreen === 1 ? 'fullbleed' : ''}" style="font-family: ${font.family}; ${sizeStyle}">
     <!-- Menu bar -->
     <div class="menu-bar">
-      <span class="menu-title">❀ risoprint</span>
+      <span class="menu-title">❀ risopaint</span>
       <span class="menu-item" data-menu="file">file</span>
       <span class="menu-item" data-menu="edit">edit</span>
       <span class="menu-item" data-menu="view">view</span>
       <span class="menu-item" data-menu="help">help</span>
       <div class="menu-spacer"></div>
       <button class="font-toggle" id="dark-toggle" title="Toggle dark mode">${state.darkMode ? '☀' : '☾'}</button>
-      <button class="font-toggle" id="bg-toggle" title="Change background">${bgPatterns[state.bgIndex].name}</button>
       <button class="font-toggle" id="fullscreen-toggle" title="Fullscreen">⛶</button>
     </div>
 
@@ -154,11 +153,9 @@ function render() {
         <div class="canvas-container" id="canvas-container">
           <div class="ruler ruler-top" id="ruler-top"></div>
           <div class="ruler ruler-left" id="ruler-left"></div>
-          <div class="canvas-border-wrap">
-            <div class="canvas-inner" id="canvas-inner" style="transform: scale(${state.zoom}); transform-origin: top left;">
-              <canvas id="physics-canvas"></canvas>
-              <canvas id="drawing-canvas"></canvas>
-            </div>
+          <div class="canvas-inner" id="canvas-inner" style="transform-origin: top left;">
+            <canvas id="physics-canvas"></canvas>
+            <canvas id="drawing-canvas"></canvas>
           </div>
         </div>
       </div>
@@ -224,14 +221,14 @@ function renderRulers() {
   let topHtml = '';
   for (let x = 0; x <= w; x += GRID_SIZE) {
     const isMajor = x % (GRID_SIZE * 4) === 0;
-    topHtml += `<div class="ruler-tick ${isMajor ? 'major' : ''}" style="left:${x + 16}px"></div>`;
+    topHtml += `<div class="ruler-tick ${isMajor ? 'major' : ''}" style="left:${x + 12}px"></div>`;
   }
   topRuler.innerHTML = topHtml;
 
   let leftHtml = '';
   for (let y = 0; y <= h; y += GRID_SIZE) {
     const isMajor = y % (GRID_SIZE * 4) === 0;
-    leftHtml += `<div class="ruler-tick ${isMajor ? 'major' : ''}" style="top:${y + 16}px"></div>`;
+    leftHtml += `<div class="ruler-tick ${isMajor ? 'major' : ''}" style="top:${y + 12}px"></div>`;
   }
   leftRuler.innerHTML = leftHtml;
 }
@@ -330,18 +327,8 @@ function bindEvents() {
   const fsBtn = document.getElementById('fullscreen-toggle');
   if (fsBtn) {
     fsBtn.addEventListener('click', () => {
-      state.fullscreen = !state.fullscreen;
+      state.fullscreen = state.fullscreen === 0 ? 1 : 0;
       render();
-    });
-  }
-
-  // Background toggle
-  const bgBtn = document.getElementById('bg-toggle');
-  if (bgBtn) {
-    bgBtn.addEventListener('click', () => {
-      state.bgIndex = (state.bgIndex + 1) % bgPatterns.length;
-      renderStarfishBg();
-      bgBtn.textContent = bgPatterns[state.bgIndex].name;
     });
   }
 
@@ -527,7 +514,10 @@ function bindEvents() {
         const delta = e.deltaY > 0 ? -0.05 : 0.05;
         state.zoom = Math.max(0.25, Math.min(4, state.zoom + delta));
         const inner = document.getElementById('canvas-inner');
-        if (inner) inner.style.transform = `scale(${state.zoom})`;
+        if (inner) {
+          inner.style.transform = `scale(${state.zoom})`;
+          inner.style.transformOrigin = 'top left';
+        }
       }
     }, { passive: false });
   }
@@ -1127,6 +1117,47 @@ window.addEventListener('resize', () => {
   redrawCanvas();
 });
 
+// ── Persistence ──
+function saveState() {
+  try {
+    const data = {
+      scenes: state.scenes,
+      currentSceneIndex: state.currentSceneIndex,
+      color: state.color,
+      brushSize: state.brushSize,
+      pixelation: state.pixelation,
+      darkMode: state.darkMode,
+      fullscreen: state.fullscreen,
+      tool: state.tool,
+    };
+    localStorage.setItem('risopaint-state', JSON.stringify(data));
+  } catch (e) {}
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('risopaint-state');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    if (data.scenes) state.scenes = data.scenes;
+    if (data.currentSceneIndex != null) state.currentSceneIndex = data.currentSceneIndex;
+    if (data.color) state.color = data.color;
+    if (data.brushSize) state.brushSize = data.brushSize;
+    if (data.pixelation != null) state.pixelation = data.pixelation;
+    if (data.darkMode != null) state.darkMode = data.darkMode;
+    if (data.fullscreen != null) state.fullscreen = data.fullscreen;
+    if (data.tool) state.tool = data.tool;
+  } catch (e) {}
+}
+
 // ── Init ──
 preloadStamps();
+loadState();
 render();
+
+// Auto-save on every change
+const _origRedraw = redrawCanvas;
+redrawCanvas = function() {
+  _origRedraw();
+  saveState();
+};
