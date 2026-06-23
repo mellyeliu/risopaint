@@ -12,7 +12,7 @@ const state = {
   selectedStamp: null,
   scenes: [createScene('Scene 1')],
   currentSceneIndex: 0,
-  physicsOn: false,
+  physicsOn: true,
   isDrawing: false,
   currentStroke: null,
   pixelation: 1,            // 1 = smooth, 8 = very chunky
@@ -385,7 +385,8 @@ function bindEvents() {
   document.querySelectorAll('.color-row-item').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      render();
+      document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
     });
   });
 
@@ -393,7 +394,8 @@ function bindEvents() {
   document.querySelectorAll('.color-swatch').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      render();
+      document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
     });
   });
 
@@ -408,7 +410,13 @@ function bindEvents() {
         state.tool = 'stamp';
         state.selectedStamp = idx;
       }
-      render();
+      // Update active states without full re-render
+      document.querySelectorAll('.stamp-btn').forEach((b, i) => {
+        b.classList.toggle('active', state.tool === 'stamp' && state.selectedStamp === i);
+      });
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+        b.classList.toggle('active', state.tool === b.dataset.tool);
+      });
     });
   });
 
@@ -417,7 +425,12 @@ function bindEvents() {
     el.addEventListener('click', () => {
       state.tool = el.dataset.tool;
       state.selectedStamp = null;
-      render();
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+        b.classList.toggle('active', state.tool === b.dataset.tool);
+      });
+      document.querySelectorAll('.stamp-btn').forEach(b => {
+        b.classList.remove('active');
+      });
     });
   });
 
@@ -907,17 +920,18 @@ function togglePhysics() {
     physics.addStrokes(currentScene().strokes);
     physics.start();
 
-    // Hide drawing canvas, show physics canvas
-    document.getElementById('drawing-canvas').style.opacity = '0';
+    // Physics canvas on top
+    const physCanvas = document.getElementById('physics-canvas');
+    if (physCanvas) physCanvas.style.zIndex = '3';
     startPhysicsRender();
   } else {
     physics.stop();
     physics.clear();
-    document.getElementById('drawing-canvas').style.opacity = '1';
     cancelAnimationFrame(physicsAnimFrame);
 
     const physCanvas = document.getElementById('physics-canvas');
     if (physCanvas) {
+      physCanvas.style.zIndex = '1';
       const ctx = physCanvas.getContext('2d');
       ctx.clearRect(0, 0, physCanvas.width / window.devicePixelRatio, physCanvas.height / window.devicePixelRatio);
     }
@@ -1128,6 +1142,7 @@ function saveState() {
       pixelation: state.pixelation,
       darkMode: state.darkMode,
       fullscreen: state.fullscreen,
+      physicsOn: state.physicsOn,
       tool: state.tool,
     };
     localStorage.setItem('risopaint-state', JSON.stringify(data));
@@ -1146,6 +1161,7 @@ function loadState() {
     if (data.pixelation != null) state.pixelation = data.pixelation;
     if (data.darkMode != null) state.darkMode = data.darkMode;
     if (data.fullscreen != null) state.fullscreen = data.fullscreen;
+    if (data.physicsOn != null) state.physicsOn = data.physicsOn;
     if (data.tool) state.tool = data.tool;
   } catch (e) {}
 }
@@ -1154,6 +1170,12 @@ function loadState() {
 preloadStamps();
 loadState();
 render();
+
+// Start physics if it should be on
+if (state.physicsOn) {
+  state.physicsOn = false; // togglePhysics will flip it back
+  togglePhysics();
+}
 
 // Auto-save on every change
 const _origRedraw = redrawCanvas;
