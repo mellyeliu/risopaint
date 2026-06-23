@@ -29,10 +29,14 @@ body {
   height: 100vh;
   width: 100vw;
   color: #1a1a1a;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -984,4 +988,247 @@ body {
 .editor-frame.dark .gallery-submit-btn:hover {
   background: #fff;
   color: #000;
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE — under 768px
+   ═══════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  #app {
+    padding: 0;
+  }
+
+  .starfish-bg {
+    display: none;
+  }
+
+  .editor-frame {
+    max-width: 100%;
+    max-height: 100%;
+    border: none;
+    border-radius: 0;
+  }
+
+  .editor-frame.fullbleed {
+    border: none;
+  }
+
+  /* Menu bar — compact */
+  .menu-bar {
+    height: 36px;
+    padding: 0 4px;
+    overflow-x: auto;
+    gap: 0;
+  }
+
+  .menu-title {
+    font-size: 13px;
+    padding: 0 8px 0 4px;
+  }
+
+  .menu-item {
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  .menu-byline {
+    display: none;
+  }
+
+  .font-toggle {
+    font-size: 14px;
+    padding: 0 6px;
+  }
+
+  /* Workspace — stack vertically */
+  .workspace {
+    flex-direction: column;
+  }
+
+  /* Left panel — horizontal strip at top */
+  .left-panel {
+    width: 100%;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid #000;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    max-height: none;
+    height: auto;
+  }
+
+  .left-panel .panel-section {
+    padding: 6px 8px;
+    border-bottom: none;
+    border-right: 1px solid #eee;
+    flex-shrink: 0;
+  }
+
+  .left-panel .panel-header {
+    display: none;
+  }
+
+  .tool-grid {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tool-btn {
+    width: 36px;
+    height: 36px;
+    aspect-ratio: auto;
+    padding: 6px;
+    flex-shrink: 0;
+  }
+
+  .tool-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .color-grid {
+    display: flex;
+    gap: 3px;
+  }
+
+  .color-swatch {
+    width: 24px;
+    height: 24px;
+    aspect-ratio: auto;
+    flex-shrink: 0;
+  }
+
+  .slider-box {
+    min-width: 100px;
+    padding: 6px 8px;
+  }
+
+  /* Canvas — takes remaining space */
+  .canvas-area {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .canvas-container {
+    padding: 4px;
+  }
+
+  /* Right panel — horizontal strip below canvas */
+  .right-panel {
+    width: 100%;
+    flex-direction: row;
+    border-left: none;
+    border-top: 1px solid #000;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    max-height: none;
+    height: auto;
+  }
+
+  .right-panel .panel-section {
+    padding: 6px 8px;
+    flex-shrink: 0;
+    width: auto;
+  }
+
+  .right-panel .panel-header {
+    display: none;
+  }
+
+  .stamp-grid {
+    display: flex;
+    gap: 4px;
+  }
+
+  .stamp-btn {
+    width: 44px;
+    height: 44px;
+    aspect-ratio: auto;
+    flex-shrink: 0;
+  }
+
+  /* Bottom bar — wrap */
+  .action-strip {
+    height: auto;
+    min-height: 32px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .scene-tabs {
+    flex-wrap: wrap;
+  }
+
+  .scene-tab {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  /* Gallery */
+  .gallery-grid-full {
+    grid-template-columns: 1fr 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .gallery-submit-row {
+    flex-direction: column;
+    padding: 8px 12px;
+  }
+
+  .submit-popup {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: 36px;
+  }
+
+  /* Rulers — hide on mobile */
+  .ruler {
+    display: none;
+  }
+
+  /* Fullscreen overrides — no extra scaling */
+  .editor-frame.fullbleed .menu-bar {
+    height: 36px;
+  }
+
+  .editor-frame.fullbleed .action-strip {
+    height: auto;
+  }
+}
+
+/* Extra small — under 480px */
+@media (max-width: 480px) {
+  .menu-item[data-menu="view"],
+  .menu-item[data-menu="help"] {
+    display: none;
+  }
+
+  .action-btn {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+
+  .color-swatch {
+    width: 20px;
+    height: 20px;
+  }
+
+  .stamp-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+  }
 }
