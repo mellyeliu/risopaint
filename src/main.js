@@ -85,12 +85,14 @@ function render() {
     <div class="editor-frame ${state.darkMode ? 'dark' : ''} ${state.fullscreen === 1 ? 'fullbleed' : ''}" style="font-family: ${font.family}; ${sizeStyle}">
     <!-- Menu bar -->
     <div class="menu-bar">
-      <span class="menu-title">❀ risopaint</span>
+      <span class="menu-title" id="menu-home" style="cursor:pointer">❀ risopaint</span>
       <span class="menu-item" data-menu="file">file</span>
       <span class="menu-item" data-menu="edit">edit</span>
       <span class="menu-item" data-menu="view">view</span>
       <span class="menu-item" data-menu="help">help</span>
+      <span class="menu-item" id="menu-gallery" style="cursor:pointer">gallery</span>
       <div class="menu-spacer"></div>
+      <span class="menu-byline">by <a href="https://mellyeliu.online" target="_blank">mellyeliu</a></span>
       <button class="font-toggle" id="dark-toggle" title="Toggle dark mode">${state.darkMode ? '☀' : '☾'}</button>
       <button class="font-toggle" id="fullscreen-toggle" title="Fullscreen">⛶</button>
     </div>
@@ -335,6 +337,20 @@ function bindCanvasEvents() {
 
 // ── Event binding ──
 function bindEvents() {
+  // Home — click risopaint title to go back to canvas
+  document.getElementById('menu-home')?.addEventListener('click', () => {
+    if (state.showGallery) {
+      state.showGallery = false;
+      render();
+    }
+  });
+
+  // Gallery menu entry
+  document.getElementById('menu-gallery')?.addEventListener('click', () => {
+    state.showGallery = !state.showGallery;
+    render();
+  });
+
   // Dark mode toggle
   const darkBtn = document.getElementById('dark-toggle');
   if (darkBtn) {
@@ -356,7 +372,7 @@ function bindEvents() {
 
   // Menu bar — open on click, switch on hover
   let menuOpen = false;
-  document.querySelectorAll('.menu-item').forEach(el => {
+  document.querySelectorAll('.menu-item[data-menu]').forEach(el => {
     const openMenu = () => {
       document.querySelectorAll('.menu-dropdown').forEach(d => d.remove());
 
@@ -1254,8 +1270,8 @@ async function loadGalleryFull() {
       <div class="gallery-card">
         <img src="${item.image}" />
         <div class="gallery-card-info">
-          <span class="gallery-card-name">${item.name || 'anon'}</span>
-          ${item.message ? `<span class="gallery-card-msg">${item.message}</span>` : ''}
+          ${item.message ? `<span class="gallery-card-name">${item.message}</span>` : ''}
+          <span class="gallery-card-msg">${item.name || 'anon'}</span>
         </div>
       </div>
     `).join('');
