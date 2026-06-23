@@ -3,6 +3,7 @@ import '@fontsource/syne-mono';
 import { stamps, getStampImage, preloadStamps } from './stamps.js';
 import { PhysicsEngine } from './physics.js';
 import { getDitheredStamp } from './dither.js';
+import { initGallery, submitToGallery, getGalleryItems } from './gallery.js';
 
 // ── State ──
 const state = {
@@ -21,6 +22,7 @@ const state = {
   darkMode: false,
   fullscreen: 1,  // 0 = normal, 1 = full bleed
   zoom: 1,
+  showGallery: false,
 };
 
 const fonts = [
@@ -195,10 +197,30 @@ function render() {
           <button class="scene-tab" id="add-scene-btn">+</button>
         </div>
         <button class="action-btn" id="play-btn">[▶ play]</button>
+        <button class="action-btn" id="gallery-btn">[gallery]</button>
+        <button class="action-btn" id="submit-btn">[submit]</button>
       </div>
     </div>
+
+    <!-- Submit popup -->
+    <div class="submit-popup hidden" id="submit-popup">
+      <div class="submit-popup-header">
+        <span>// submit to gallery</span>
+        <button class="submit-popup-close" id="submit-close">×</button>
+      </div>
+      <div class="submit-popup-body">
+        <input type="text" class="gallery-input" id="submit-name" placeholder="your name" maxlength="30" />
+        <input type="text" class="gallery-input" id="submit-message" placeholder="title or message" maxlength="100" />
+        <button class="gallery-submit-btn" id="submit-go">[submit work]</button>
+      </div>
+    </div>
+
     </div>
   `;
+
+  if (state.showGallery) {
+    showGalleryView();
+  }
 
   bindEvents();
   resizeCanvases();
@@ -332,19 +354,40 @@ function bindEvents() {
     });
   }
 
-  // Menu bar
+  // Menu bar — open on click, switch on hover
+  let menuOpen = false;
   document.querySelectorAll('.menu-item').forEach(el => {
-    el.addEventListener('click', (e) => {
-      // Close any open menu first
+    const openMenu = () => {
       document.querySelectorAll('.menu-dropdown').forEach(d => d.remove());
 
       const menu = el.dataset.menu;
       const items = {
-        file: ['New', 'Open...', '—', 'Save', 'Save as...', '—', 'Export PNG', 'Export story'],
-        edit: ['Undo', '—', 'Clear canvas', '—', 'Copy', 'Paste'],
-        view: ['Zoom in', 'Zoom out', '—', 'Show grid', 'Show rulers'],
-        image: ['Resize canvas...', 'Flip horizontal', 'Flip vertical', '—', 'Invert colors'],
-        help: ['About Pretty Paint', '—', 'Keyboard shortcuts'],
+        file: [
+          { label: 'New', action: () => { state.scenes = [createScene('Scene 1')]; state.currentSceneIndex = 0; if (state.physicsOn) togglePhysics(); render(); }},
+          '—',
+          { label: 'Export PNG', action: () => saveImage() },
+          { label: 'Export story', action: () => playStory() },
+          '—',
+          { label: 'Submit to gallery', action: () => { document.getElementById('submit-popup')?.classList.remove('hidden'); }},
+        ],
+        edit: [
+          { label: 'Undo', shortcut: '⌘Z', action: () => undo() },
+          '—',
+          { label: 'Clear canvas', action: () => { currentScene().strokes = []; if (state.physicsOn) togglePhysics(); redrawCanvas(); }},
+        ],
+        view: [
+          { label: 'Zoom in', shortcut: '⌘+', action: () => { state.zoom = Math.min(4, state.zoom + 0.25); const inner = document.getElementById('canvas-inner'); if (inner) { inner.style.transform = `scale(${state.zoom})`; inner.style.transformOrigin = 'top left'; }}},
+          { label: 'Zoom out', shortcut: '⌘−', action: () => { state.zoom = Math.max(0.25, state.zoom - 0.25); const inner = document.getElementById('canvas-inner'); if (inner) { inner.style.transform = `scale(${state.zoom})`; inner.style.transformOrigin = 'top left'; }}},
+          { label: 'Reset zoom', action: () => { state.zoom = 1; const inner = document.getElementById('canvas-inner'); if (inner) inner.style.transform = ''; }},
+          '—',
+          { label: state.fullscreen ? 'Small view' : 'Full screen', action: () => { state.fullscreen = state.fullscreen === 0 ? 1 : 0; render(); }},
+          { label: state.darkMode ? 'Light mode' : 'Dark mode', action: () => { state.darkMode = !state.darkMode; document.body.style.background = state.darkMode ? '#202020' : '#d8d8d8'; render(); }},
+        ],
+        help: [
+          { label: 'About risopaint', action: () => alert('❀ risopaint\n\nA riso-textured paint tool.\nDraw, stamp, drop, share.') },
+          '—',
+          { label: 'Keyboard shortcuts', action: () => alert('⌘Z — Undo\n⌘+/− — Zoom\nArrow keys — Navigate scenes\nEsc — Close') },
+        ],
       };
 
       const dropdown = document.createElement('div');
@@ -353,31 +396,34 @@ function bindEvents() {
       dropdown.innerHTML = (items[menu] || []).map(item =>
         item === '—'
           ? '<div class="menu-sep"></div>'
-          : `<div class="menu-dropdown-item">${item}</div>`
+          : `<div class="menu-dropdown-item"><span>${item.label}</span>${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ''}</div>`
       ).join('');
 
-      // Wire up the menu actions
-      dropdown.querySelectorAll('.menu-dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const action = item.textContent;
+      const menuItems = items[menu]?.filter(i => i !== '—') || [];
+      dropdown.querySelectorAll('.menu-dropdown-item').forEach((el, i) => {
+        el.addEventListener('click', () => {
           dropdown.remove();
-          if (action === 'Undo') undo();
-          else if (action === 'Clear canvas') { currentScene().strokes = []; if (state.physicsOn) togglePhysics(); redrawCanvas(); }
-          else if (action === 'New') { state.scenes = [createScene('Scene 1')]; state.currentSceneIndex = 0; if (state.physicsOn) togglePhysics(); render(); }
-          else if (action === 'Save' || action === 'Export PNG') saveImage();
+          menuOpen = false;
+          menuItems[i]?.action?.();
         });
       });
 
       el.parentElement.appendChild(dropdown);
+      menuOpen = true;
 
-      // Close on click outside
       const closeMenu = (ev) => {
-        if (!dropdown.contains(ev.target) && ev.target !== el) {
+        if (!dropdown.contains(ev.target) && !ev.target.classList.contains('menu-item')) {
           dropdown.remove();
+          menuOpen = false;
           document.removeEventListener('click', closeMenu);
         }
       };
       setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    };
+
+    el.addEventListener('click', openMenu);
+    el.addEventListener('mouseenter', () => {
+      if (menuOpen) openMenu();
     });
   });
 
@@ -494,14 +540,68 @@ function bindEvents() {
   // Play
   document.getElementById('play-btn').addEventListener('click', playStory);
 
+  // Gallery — full page view
+  document.getElementById('gallery-btn').addEventListener('click', () => {
+    state.showGallery = true;
+    render();
+  });
+
+  // Submit popup
+  document.getElementById('submit-btn').addEventListener('click', () => {
+    document.getElementById('submit-popup').classList.toggle('hidden');
+  });
+
+  document.getElementById('submit-close')?.addEventListener('click', () => {
+    document.getElementById('submit-popup').classList.add('hidden');
+  });
+
+  document.getElementById('submit-go')?.addEventListener('click', async () => {
+    const name = document.getElementById('submit-name').value.trim();
+    const message = document.getElementById('submit-message').value.trim();
+
+    const inner = document.getElementById('canvas-inner');
+    const w = inner ? inner.clientWidth : 800;
+    const h = inner ? inner.clientHeight : 600;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w * window.devicePixelRatio;
+    tempCanvas.height = h * window.devicePixelRatio;
+    const ctx = tempCanvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    currentScene().strokes.forEach(s => drawStroke(ctx, s));
+
+    const btn = document.getElementById('submit-go');
+    btn.textContent = '[submitting...]';
+    btn.style.pointerEvents = 'none';
+
+    try {
+      await submitToGallery(tempCanvas, name, message);
+      document.getElementById('submit-name').value = '';
+      document.getElementById('submit-message').value = '';
+      btn.textContent = '[submitted ✓]';
+      setTimeout(() => {
+        btn.textContent = '[submit work]';
+        btn.style.pointerEvents = 'auto';
+        document.getElementById('submit-popup').classList.add('hidden');
+      }, 1200);
+    } catch (e) {
+      btn.textContent = '[error]';
+      setTimeout(() => { btn.textContent = '[submit work]'; btn.style.pointerEvents = 'auto'; }, 1500);
+    }
+  });
+
   // Canvas events
   bindCanvasEvents();
 
   // Keyboard
+  let undoDebounce = false;
   window.addEventListener('keydown', (e) => {
     if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      undo();
+      if (!undoDebounce) {
+        undoDebounce = true;
+        undo();
+        setTimeout(() => { undoDebounce = false; }, 150);
+      }
     }
   });
 
@@ -1111,6 +1211,59 @@ function playStory() {
   renderSlide();
 }
 
+// ── Gallery ──
+function showGalleryView() {
+  const workspace = document.querySelector('.workspace');
+  const bottomBar = document.querySelector('.bottom-bar');
+  if (!workspace || !bottomBar) return;
+
+  // Replace workspace with gallery
+  workspace.innerHTML = `
+    <div class="gallery-page">
+      <div class="gallery-page-header">
+        <div class="gallery-page-title">// gallery</div>
+        <button class="gallery-back-btn" id="gallery-back">[← back to canvas]</button>
+      </div>
+      <div class="gallery-grid-full" id="gallery-grid"></div>
+    </div>
+  `;
+
+  // Hide bottom bar
+  bottomBar.style.display = 'none';
+
+  // Bind gallery events
+  document.getElementById('gallery-back').addEventListener('click', () => {
+    state.showGallery = false;
+    render();
+  });
+
+  loadGalleryFull();
+}
+
+async function loadGalleryFull() {
+  const grid = document.getElementById('gallery-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div style="color:#999;padding:20px;">loading...</div>';
+  try {
+    const items = await getGalleryItems(50);
+    if (items.length === 0) {
+      grid.innerHTML = '<div style="color:#999;padding:20px;">no submissions yet — be the first!</div>';
+      return;
+    }
+    grid.innerHTML = items.map(item => `
+      <div class="gallery-card">
+        <img src="${item.image}" />
+        <div class="gallery-card-info">
+          <span class="gallery-card-name">${item.name || 'anon'}</span>
+          ${item.message ? `<span class="gallery-card-msg">${item.message}</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    grid.innerHTML = '<div style="color:#999;padding:20px;">could not load gallery</div>';
+  }
+}
+
 // ── Resize handling ──
 window.addEventListener('resize', () => {
   resizeCanvases();
@@ -1153,6 +1306,7 @@ function loadState() {
 // ── Init ──
 preloadStamps();
 loadState();
+initGallery();
 render();
 
 // Auto-save on every change
