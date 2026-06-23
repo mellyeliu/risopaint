@@ -96,7 +96,7 @@ body {
 
 .editor-frame {
   width: 100%;
-  max-width: calc(100% - 140px);
+  max-width: min(calc(100% - 140px), 1200px);
   height: 100%;
   max-height: calc(100% - 140px);
   background: #fff;
@@ -129,7 +129,7 @@ body {
   align-items: center;
   background: #ddd;
   border-bottom: 1px solid #000;
-  height: 34px;
+  height: 38px;
   flex-shrink: 0;
   position: relative;
   padding: 0 4px;
@@ -208,7 +208,7 @@ body {
 /* ── Panels ── */
 
 .panel-section {
-  padding: 8px 8px;
+  padding: 8px 14px;
 }
 
 .panel-header {
@@ -225,7 +225,7 @@ body {
 /* ── Left panel ── */
 
 .left-panel {
-  width: 128px;
+  width: 150px;
   background: #fff;
   border-right: 1px solid #000;
   display: flex;
@@ -430,7 +430,7 @@ body {
 /* ── Right panel — stamps ── */
 
 .right-panel {
-  width: 170px;
+  width: 190px;
   background: #fff;
   border-left: 1px solid #000;
   display: flex;

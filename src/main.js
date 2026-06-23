@@ -19,12 +19,12 @@ const state = {
   fontIndex: 0,              // Velvelyne
   bgIndex: 0,                // cycles through bg patterns
   darkMode: false,
-  fullscreen: 0,  // 0 = normal, 1 = full bleed
+  fullscreen: 1,  // 0 = normal, 1 = full bleed
   zoom: 1,
 };
 
 const fonts = [
-  { name: 'Velvelyne', family: "'Velvelyne', serif", sizeBoost: 7 },
+  { name: 'Velvelyne', family: "'Velvelyne', serif", sizeBoost: 9 },
 ];
 
 const bgPatterns = [
