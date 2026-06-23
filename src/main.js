@@ -1270,7 +1270,7 @@ async function loadGalleryFull() {
       <div class="gallery-card">
         <img src="${item.image}" />
         <div class="gallery-card-info">
-          ${item.message ? `<span class="gallery-card-name">${item.message}</span>` : ''}
+          <span class="gallery-card-name">${item.message || 'untitled'}</span>
           <span class="gallery-card-msg">${item.name || 'anon'}</span>
         </div>
       </div>

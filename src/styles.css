@@ -710,7 +710,21 @@ body {
 
 .gallery-card {
   border: 1px dashed #000;
-  overflow: hidden;
+  position: relative;
+}
+
+.gallery-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.1;
+  mix-blend-mode: multiply;
+  pointer-events: none;
 }
 
 .gallery-card img {
@@ -718,23 +732,26 @@ body {
   aspect-ratio: 4/3;
   object-fit: cover;
   display: block;
+  border-bottom: 1px dashed #000;
 }
 
 .gallery-card-info {
-  padding: 6px 8px;
+  padding: 8px 8px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .gallery-card-name {
-  font-size: 11px;
+  font-size: 12px;
   color: #000;
+  word-wrap: break-word;
 }
 
 .gallery-card-msg {
   font-size: 10px;
   color: #999;
+  word-wrap: break-word;
 }
 
 /* ── Submit popup ── */
@@ -1089,13 +1106,15 @@ body {
   }
 
   .color-grid {
-    display: flex;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    grid-auto-flow: column;
     gap: 3px;
   }
 
   .color-swatch {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     aspect-ratio: auto;
     flex-shrink: 0;
   }
@@ -1150,11 +1169,11 @@ body {
     flex-shrink: 0;
   }
 
-  /* Bottom bar — wrap */
+  /* Bottom bar — scrollable */
   .action-strip {
-    height: auto;
-    min-height: 32px;
-    flex-wrap: wrap;
+    height: 32px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 
   .action-btn {
@@ -1163,12 +1182,19 @@ body {
   }
 
   .scene-tabs {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
 
   .scene-tab {
     font-size: 11px;
     padding: 6px 8px;
+    flex-shrink: 0;
+  }
+
+  .action-spacer {
+    flex: 0;
+    width: 0;
   }
 
   /* Gallery */
