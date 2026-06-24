@@ -472,30 +472,34 @@ function bindEvents() {
     });
   });
 
-  // Colors — auto-select brush on color pick
+  // Colors — only reset to brush if a stamp was selected
   document.querySelectorAll('.color-row-item').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      state.tool = 'brush';
-      state.selectedStamp = null;
+      if (state.tool === 'stamp') {
+        state.tool = 'brush';
+        state.selectedStamp = null;
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
+        document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
+      }
       document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
       document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
-      document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
     });
   });
 
   document.querySelectorAll('.color-swatch').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      state.tool = 'brush';
-      state.selectedStamp = null;
+      if (state.tool === 'stamp') {
+        state.tool = 'brush';
+        state.selectedStamp = null;
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
+        document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
+      }
       document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
       document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
-      document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
     });
   });
 
@@ -844,12 +848,13 @@ function onCanvasDown(e) {
 
   if (state.tool === 'line') {
     state.isDrawing = true;
-    const edge = getClosestEdge(x, y, null);
+    const gx = Math.floor(x / GRID_SIZE) * GRID_SIZE;
+    const gy = Math.floor(y / GRID_SIZE) * GRID_SIZE;
     state.currentStroke = {
       type: 'gridline',
       color: state.color,
-      edges: [edge],
-      edgeSet: new Set([edge]),
+      cells: [`${gx},${gy}`],
+      cellSet: new Set([`${gx},${gy}`]),
     };
     redrawCanvas();
     return;
@@ -906,11 +911,28 @@ function onCanvasMove(e) {
   }
 
   if (state.currentStroke.type === 'gridline') {
-    const prevEdge = state.currentStroke.edges[state.currentStroke.edges.length - 1];
-    const edge = getClosestEdge(x, y, prevEdge);
-    if (!state.currentStroke.edgeSet.has(edge)) {
-      state.currentStroke.edgeSet.add(edge);
-      state.currentStroke.edges.push(edge);
+    const gx = Math.floor(x / GRID_SIZE) * GRID_SIZE;
+    const gy = Math.floor(y / GRID_SIZE) * GRID_SIZE;
+    const cells = state.currentStroke.cells;
+    const lastCell = cells[cells.length - 1];
+    const [lx, ly] = lastCell.split(',').map(Number);
+    const dx = gx - lx;
+    const dy = gy - ly;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy)) / GRID_SIZE;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const ix = Math.floor((lx + dx * t) / GRID_SIZE) * GRID_SIZE;
+      const iy = Math.floor((ly + dy * t) / GRID_SIZE) * GRID_SIZE;
+      const key = `${ix},${iy}`;
+      if (!state.currentStroke.cellSet.has(key)) {
+        state.currentStroke.cellSet.add(key);
+        state.currentStroke.cells.push(key);
+      }
+    }
+    const key = `${gx},${gy}`;
+    if (!state.currentStroke.cellSet.has(key)) {
+      state.currentStroke.cellSet.add(key);
+      state.currentStroke.cells.push(key);
     }
     redrawCanvas();
     return;
@@ -1066,6 +1088,7 @@ function drawStroke(ctx, stroke) {
       ctx.fillStyle = 'rgba(0,0,0,1)';
     } else {
       ctx.fillStyle = stroke.color;
+      ctx.globalAlpha = 0.9;
     }
     const brushCells = Math.max(1, Math.round(stroke.size / GRID_SIZE));
     for (const key of stroke.cells) {
@@ -1183,21 +1206,26 @@ function drawStroke(ctx, stroke) {
     ctx.fillText(stroke.text, stroke.x, stroke.y);
     ctx.restore();
   } else if (stroke.type === 'gridline') {
+    if (!stroke.cells || stroke.cells.length < 1) return;
     ctx.save();
     ctx.strokeStyle = stroke.color || '#000';
     ctx.lineWidth = 1;
-    for (const edge of stroke.edges) {
-      const [dir, coords] = edge.split(':');
-      const [ex, ey] = coords.split(',').map(Number);
-      ctx.beginPath();
-      if (dir === 'h') {
-        ctx.moveTo(ex, ey);
-        ctx.lineTo(ex + GRID_SIZE, ey);
-      } else {
-        ctx.moveTo(ex, ey);
-        ctx.lineTo(ex, ey + GRID_SIZE);
+    const cellSet = new Set(stroke.cells);
+    for (const key of stroke.cells) {
+      const [gx, gy] = key.split(',').map(Number);
+      // Draw border on each side only if neighbor is not in the set
+      if (!cellSet.has(`${gx},${gy - GRID_SIZE}`)) { // top
+        ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + GRID_SIZE, gy); ctx.stroke();
       }
-      ctx.stroke();
+      if (!cellSet.has(`${gx},${gy + GRID_SIZE}`)) { // bottom
+        ctx.beginPath(); ctx.moveTo(gx, gy + GRID_SIZE); ctx.lineTo(gx + GRID_SIZE, gy + GRID_SIZE); ctx.stroke();
+      }
+      if (!cellSet.has(`${gx - GRID_SIZE},${gy}`)) { // left
+        ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy + GRID_SIZE); ctx.stroke();
+      }
+      if (!cellSet.has(`${gx + GRID_SIZE},${gy}`)) { // right
+        ctx.beginPath(); ctx.moveTo(gx + GRID_SIZE, gy); ctx.lineTo(gx + GRID_SIZE, gy + GRID_SIZE); ctx.stroke();
+      }
     }
     ctx.restore();
   } else if (stroke.type === 'crayon') {
