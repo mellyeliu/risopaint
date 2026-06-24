@@ -1,6 +1,6 @@
 import './styles.css';
 import '@fontsource/syne-mono';
-import { stamps, getStampImage, preloadStamps } from './stamps.js';
+import { stamps, getStampImage, getStampImageAlt, preloadStamps } from './stamps.js';
 import { PhysicsEngine } from './physics.js';
 import { getDitheredStamp } from './dither.js';
 import { initGallery, submitToGallery, getGalleryItems } from './gallery.js';
@@ -23,6 +23,7 @@ const state = {
   fullscreen: 1,  // 0 = normal, 1 = full bleed
   zoom: 1,
   showGallery: false,
+  liveMode: true,
 };
 
 const fonts = [
@@ -122,6 +123,12 @@ function render() {
             <button class="tool-btn ${state.tool === 'line' ? 'active' : ''}" data-tool="line" title="grid lines">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
             </button>
+            <button class="tool-btn ${state.tool === 'crayon' ? 'active' : ''}" data-tool="crayon" title="crayon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 2.5 L21.5 6.5 L8 20 L2 22 L4 16 Z"/><path d="M15 5 L19 9"/></svg>
+            </button>
+            <button class="tool-btn ${state.tool === 'fractal' ? 'active' : ''}" data-tool="fractal" title="fractal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3 Q8 8 12 12 Q16 16 12 21"/><path d="M12 12 Q8 10 6 6"/><path d="M12 12 Q16 10 18 6"/><path d="M12 12 Q8 16 5 19"/><path d="M12 12 Q16 16 19 19"/></svg>
+            </button>
           </div>
         </div>
 
@@ -149,6 +156,12 @@ function render() {
             <input type="range" class="slider" id="pixel-slider" min="1" max="8" value="${state.pixelation}" />
             <span class="slider-val">${state.pixelation}</span>
           </div>
+        </div>
+
+        <div class="panel-section">
+          <button class="live-toggle-btn ${state.liveMode ? 'active' : ''}" id="live-toggle">
+            ${state.liveMode ? '◉ live' : '○ live'}
+          </button>
         </div>
       </div>
 
@@ -361,6 +374,22 @@ function bindEvents() {
     });
   }
 
+  // Live animation toggle
+  const liveBtn = document.getElementById('live-toggle');
+  if (liveBtn) {
+    liveBtn.addEventListener('click', () => {
+      state.liveMode = !state.liveMode;
+      liveBtn.textContent = state.liveMode ? '◉ live' : '○ live';
+      liveBtn.classList.toggle('active', state.liveMode);
+      if (state.liveMode) {
+        startLiveAnimation();
+      } else if (liveAnimFrame) {
+        cancelAnimationFrame(liveAnimFrame);
+        liveAnimFrame = null;
+      }
+    });
+  }
+
   // Fullscreen toggle
   const fsBtn = document.getElementById('fullscreen-toggle');
   if (fsBtn) {
@@ -443,19 +472,30 @@ function bindEvents() {
     });
   });
 
-  // Colors (new row items)
+  // Colors — auto-select brush on color pick
   document.querySelectorAll('.color-row-item').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      render();
+      state.tool = 'brush';
+      state.selectedStamp = null;
+      document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
+      document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
     });
   });
 
-  // Also keep old color-swatch selector working
   document.querySelectorAll('.color-swatch').forEach(el => {
     el.addEventListener('click', () => {
       state.color = el.dataset.color;
-      render();
+      state.tool = 'brush';
+      state.selectedStamp = null;
+      document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.color-row-item').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === 'brush'));
+      document.querySelectorAll('.stamp-btn').forEach(b => b.classList.remove('active'));
     });
   });
 
@@ -584,7 +624,7 @@ function bindEvents() {
     const ctx = tempCanvas.getContext('2d');
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     currentScene().strokes.forEach(s => drawStroke(ctx, s));
-
+    applyGrain(ctx, w, h, 25);
     const btn = document.getElementById('submit-go');
     btn.textContent = '[submitting...]';
     btn.style.pointerEvents = 'none';
@@ -732,17 +772,47 @@ function onCanvasDown(e) {
   if (state.physicsOn) return;
 
   if (state.tool === 'text') {
-    const text = prompt('Enter text:');
-    if (text) {
-      currentScene().strokes.push({
-        type: 'text',
-        text,
-        x, y,
-        color: state.color,
-        size: Math.max(state.brushSize, 12),
-      });
-      redrawCanvas();
-    }
+    // Create inline text input on the canvas
+    const inner = document.getElementById('canvas-inner');
+    if (!inner) return;
+
+    // Remove any existing text input
+    inner.querySelector('.canvas-text-input')?.remove();
+
+    const input = document.createElement('textarea');
+    input.className = 'canvas-text-input';
+    input.style.left = x + 'px';
+    input.style.top = y + 'px';
+    input.style.color = state.color;
+    input.style.fontSize = Math.max(state.brushSize, 12) + 'px';
+    inner.appendChild(input);
+    input.focus();
+
+    const commitText = () => {
+      const text = input.value.trim();
+      if (text) {
+        currentScene().strokes.push({
+          type: 'text',
+          text,
+          x, y: y + Math.max(state.brushSize, 12),
+          color: state.color,
+          size: Math.max(state.brushSize, 12),
+        });
+        redrawCanvas();
+      }
+      input.remove();
+    };
+
+    input.addEventListener('blur', commitText);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        commitText();
+      }
+      if (e.key === 'Escape') {
+        input.remove();
+      }
+    });
     return;
   }
 
@@ -785,6 +855,18 @@ function onCanvasDown(e) {
     return;
   }
 
+  if (state.tool === 'crayon' || state.tool === 'fractal') {
+    state.isDrawing = true;
+    state.currentStroke = {
+      type: state.tool,
+      color: state.tool === 'fractal' ? '#000' : state.color,
+      size: state.brushSize,
+      points: [{ x, y }],
+    };
+    redrawCanvas();
+    return;
+  }
+
   // Brush or eraser — snap to grid cells
   state.isDrawing = true;
   const gx = Math.floor(x / GRID_SIZE) * GRID_SIZE;
@@ -804,6 +886,25 @@ function onCanvasMove(e) {
   const x = e.offsetX;
   const y = e.offsetY;
 
+  if (state.currentStroke.type === 'crayon' || state.currentStroke.type === 'fractal') {
+    // Interpolate between last point and current for smooth strokes
+    const pts = state.currentStroke.points;
+    const last = pts[pts.length - 1];
+    const dist = Math.sqrt((x - last.x) ** 2 + (y - last.y) ** 2);
+    const step = Math.max(2, state.brushSize * 0.3);
+    if (dist > step) {
+      const steps = Math.ceil(dist / step);
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        pts.push({ x: last.x + (x - last.x) * t, y: last.y + (y - last.y) * t });
+      }
+    } else {
+      pts.push({ x, y });
+    }
+    redrawCanvas();
+    return;
+  }
+
   if (state.currentStroke.type === 'gridline') {
     const prevEdge = state.currentStroke.edges[state.currentStroke.edges.length - 1];
     const edge = getClosestEdge(x, y, prevEdge);
@@ -815,8 +916,30 @@ function onCanvasMove(e) {
     return;
   }
 
+  // Brush/eraser — interpolate grid cells between last and current position
   const gx = Math.floor(x / GRID_SIZE) * GRID_SIZE;
   const gy = Math.floor(y / GRID_SIZE) * GRID_SIZE;
+
+  // Get last cell position for interpolation
+  const cells = state.currentStroke.cells;
+  const lastCell = cells[cells.length - 1];
+  const [lx, ly] = lastCell.split(',').map(Number);
+
+  // Walk from last cell to current cell
+  const dx = gx - lx;
+  const dy = gy - ly;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy)) / GRID_SIZE;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const ix = Math.floor((lx + dx * t) / GRID_SIZE) * GRID_SIZE;
+    const iy = Math.floor((ly + dy * t) / GRID_SIZE) * GRID_SIZE;
+    const key = `${ix},${iy}`;
+    if (!state.currentStroke.cellSet.has(key)) {
+      state.currentStroke.cellSet.add(key);
+      state.currentStroke.cells.push(key);
+    }
+  }
+
   const key = `${gx},${gy}`;
   if (!state.currentStroke.cellSet.has(key)) {
     state.currentStroke.cellSet.add(key);
@@ -828,13 +951,18 @@ function onCanvasMove(e) {
 function onCanvasUp() {
   if (!state.isDrawing) return;
   state.isDrawing = false;
-  if (state.currentStroke && (state.currentStroke.cells?.length > 0 || state.currentStroke.edges?.length > 0)) {
+  if (state.currentStroke && (state.currentStroke.cells?.length > 0 || state.currentStroke.edges?.length > 0 || state.currentStroke.points?.length > 0)) {
     // Strip Sets before storing
     const { cellSet, edgeSet, ...stroke } = state.currentStroke;
     currentScene().strokes.push(stroke);
   }
   state.currentStroke = null;
   redrawCanvas();
+
+  // Start live animation if needed
+  if (state.liveMode) {
+    startLiveAnimation();
+  }
 }
 
 // ── Undo ──
@@ -959,11 +1087,77 @@ function drawStroke(ctx, stroke) {
         pixelScale: 3,
         mode: 'riso',
       });
-      if (dithered) {
-        ctx.drawImage(dithered, stroke.x - s / 2, stroke.y - s / 2, s, s);
+
+      ctx.save();
+      // Subtle animation when live mode is on
+      if (state.liveMode) {
+        const time = performance.now() * 0.001;
+        const id = stroke.x * 31 + stroke.y * 17;
+        const drawImg = dithered || img;
+
+        if (stamp.name === 'butterfly') {
+          // Butterfly — wings flutter via horizontal squish
+          const flutter = 0.85 + Math.sin(time * 6 + id) * 0.15;
+          ctx.translate(stroke.x, stroke.y);
+          ctx.scale(flutter, 1);
+          ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+        } else if (stamp.name === 'cloud') {
+          // Cloud — slow drift left to right
+          const drift = Math.sin(time * 0.3 + id * 0.1) * 8;
+          ctx.translate(stroke.x + drift, stroke.y);
+          ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+        } else if (stamp.name === 'ladybug') {
+          // Ladybug — toggle between closed and open wing sprites
+          const wingPhase = Math.sin(time * 1.5 + id);
+          const isOpen = wingPhase > 0.3;
+          ctx.translate(stroke.x, stroke.y);
+          if (isOpen && stamp.svgOpen) {
+            const altImg = getStampImageAlt(stamp);
+            if (altImg && altImg.complete) {
+              const altDithered = getDitheredStamp({ name: stamp.name + '-open', svg: stamp.svgOpen }, altImg, Math.round(s * window.devicePixelRatio), { pixelScale: 3, mode: 'riso' });
+              ctx.drawImage(altDithered || altImg, -s / 2, -s / 2, s, s);
+            } else {
+              ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+            }
+          } else {
+            ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+          }
+        } else if (stamp.name === 'rainbow') {
+          // Rainbow — still with subtle shimmer at bottom
+          const shimmer = Math.sin(time * 3 + id) * 0.02;
+          ctx.translate(stroke.x, stroke.y);
+          ctx.transform(1, 0, shimmer, 1, 0, 0); // slight horizontal skew
+          ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+        } else if (stamp.name === 'sparkle' || stamp.name === 'four-star') {
+          // Stars — just pulse, no sway
+          const pulse = 1 + Math.sin(time * 2.5 + id) * 0.06;
+          ctx.translate(stroke.x, stroke.y);
+          ctx.scale(pulse, pulse);
+          ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
+        } else if (stamp.name === 'flower' || stamp.name === 'lotus' || stamp.name === 'petal') {
+          // Flowers — sway at the top only (transform-origin at bottom)
+          const sway = Math.sin(time * 1.2 + id) * 0.04;
+          ctx.translate(stroke.x, stroke.y + s / 2);
+          ctx.rotate(sway);
+          ctx.drawImage(drawImg, -s / 2, -s, s, s);
+        } else {
+          // Default — gentle wobble/pulse/rotate
+          const wobble = Math.sin(time * 1.5 + id) * 1.2;
+          const pulse = 1 + Math.sin(time * 2 + id * 0.7) * 0.015;
+          const rotate = Math.sin(time * 0.8 + id * 0.5) * 0.03;
+          ctx.translate(stroke.x, stroke.y);
+          ctx.rotate(rotate);
+          ctx.scale(pulse, pulse);
+          ctx.drawImage(drawImg, -s / 2, -s / 2 + wobble, s, s);
+        }
       } else {
-        ctx.drawImage(img, stroke.x - s / 2, stroke.y - s / 2, s, s);
+        if (dithered) {
+          ctx.drawImage(dithered, stroke.x - s / 2, stroke.y - s / 2, s, s);
+        } else {
+          ctx.drawImage(img, stroke.x - s / 2, stroke.y - s / 2, s, s);
+        }
       }
+      ctx.restore();
     } else {
       img._loadPromise?.then(() => redrawCanvas());
     }
@@ -1005,6 +1199,104 @@ function drawStroke(ctx, stroke) {
       }
       ctx.stroke();
     }
+    ctx.restore();
+  } else if (stroke.type === 'crayon') {
+    if (!stroke.points || stroke.points.length < 1) return;
+    ctx.save();
+    const size = Math.max(stroke.size, 2);
+    ctx.fillStyle = stroke.color;
+    for (let i = 0; i < stroke.points.length; i++) {
+      const p = stroke.points[i];
+      const count = Math.max(5, Math.floor(size));
+      for (let j = 0; j < count; j++) {
+        // Distance from center — gaussian-ish distribution
+        const angle = Math.random() * Math.PI * 2;
+        const dist = (Math.random() + Math.random() + Math.random()) / 3; // clusters toward center
+        const spread = size * (0.3 + dist * 1.5);
+        const ox = Math.cos(angle) * spread;
+        const oy = Math.sin(angle) * spread;
+        const r = Math.random() * Math.max(1, size * 0.2) + 0.5;
+
+        // Opacity falls off with distance from center
+        const falloff = 1 - dist;
+        ctx.globalAlpha = falloff * falloff * (0.35 + Math.random() * 0.35);
+
+        ctx.beginPath();
+        ctx.ellipse(p.x + ox, p.y + oy, r, r * (0.5 + Math.random() * 1), Math.random() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  } else if (stroke.type === 'fractal') {
+    if (!stroke.points || stroke.points.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = 0.6;
+
+    const size = Math.max(stroke.size, 4);
+
+    for (let i = 1; i < stroke.points.length; i++) {
+      const p = stroke.points[i];
+      const prev = stroke.points[i - 1];
+
+      // Main line
+      ctx.beginPath();
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+
+      // Branch every few points
+      if (i % 4 === 0) {
+        const dx = p.x - prev.x;
+        const dy = p.y - prev.y;
+        const angle = Math.atan2(dy, dx);
+        const len = size * (0.3 + Math.random() * 0.8);
+
+        // Two branches at angles
+        const spread = 0.5 + Math.random() * 0.7;
+        for (const sign of [-1, 1]) {
+          const branchAngle = angle + sign * spread;
+          let bx = p.x;
+          let by = p.y;
+          let bLen = len;
+          let depth = 0;
+          let curAngle = branchAngle;
+
+          while (depth < 2 && bLen > 2) {
+            const ex = bx + Math.cos(curAngle) * bLen;
+            const ey = by + Math.sin(curAngle) * bLen;
+            ctx.globalAlpha = 0.4 - depth * 0.12;
+            ctx.lineWidth = Math.max(0.3, 0.7 - depth * 0.2);
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+
+            // Sub-branch
+            if (Math.random() > 0.4) {
+              const subAngle = curAngle + (Math.random() - 0.5) * 1.2;
+              const subLen = bLen * 0.6;
+              const sx = ex + Math.cos(subAngle) * subLen;
+              const sy = ey + Math.sin(subAngle) * subLen;
+              ctx.beginPath();
+              ctx.moveTo(ex, ey);
+              ctx.lineTo(sx, sy);
+              ctx.stroke();
+            }
+
+            bx = ex;
+            by = ey;
+            bLen *= 0.6;
+            curAngle += (Math.random() - 0.5) * 0.6;
+            depth++;
+          }
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
     ctx.restore();
   }
 }
@@ -1174,6 +1466,7 @@ function playStory() {
     const ctx = c.getContext('2d');
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     scene.strokes.forEach(s => drawStroke(ctx, s));
+    applyGrain(ctx, w, h, 25);
     return c.toDataURL('image/png');
   });
 
@@ -1268,7 +1561,7 @@ async function loadGalleryFull() {
     }
     grid.innerHTML = items.map(item => `
       <div class="gallery-card">
-        <img src="${item.image}" />
+        <div class="gallery-img-wrap"><img src="${item.image}" /></div>
         <div class="gallery-card-info">
           <span class="gallery-card-name">${item.message || 'untitled'}</span>
           <span class="gallery-card-msg">${item.name || 'anon'}</span>
@@ -1278,6 +1571,22 @@ async function loadGalleryFull() {
   } catch (e) {
     grid.innerHTML = '<div style="color:#999;padding:20px;">could not load gallery</div>';
   }
+}
+
+// ── Live animation loop ──
+let liveAnimFrame = null;
+
+function startLiveAnimation() {
+  if (liveAnimFrame) return;
+  function animate() {
+    if (!state.liveMode || state.physicsOn || state.showGallery) {
+      liveAnimFrame = null;
+      return;
+    }
+    redrawCanvas();
+    liveAnimFrame = requestAnimationFrame(animate);
+  }
+  liveAnimFrame = requestAnimationFrame(animate);
 }
 
 // ── Resize handling ──
@@ -1322,8 +1631,20 @@ function loadState() {
 // ── Init ──
 preloadStamps();
 loadState();
+
+// Default dark mode to system preference if not saved
+if (!localStorage.getItem('risopaint-state')) {
+  state.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+document.body.style.background = state.darkMode ? '#202020' : '#d8d8d8';
+
 initGallery();
 render();
+
+// Start live animation if enabled
+if (state.liveMode) {
+  startLiveAnimation();
+}
 
 // Auto-save on every change
 const _origRedraw = redrawCanvas;

@@ -139,6 +139,17 @@ body {
   padding: 0 4px;
 }
 
+.menu-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.2;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
 .menu-title {
   font-size: 14px;
   font-weight: 700;
@@ -374,6 +385,26 @@ body {
   cursor: pointer;
 }
 
+.live-toggle-btn {
+  width: 100%;
+  padding: 6px;
+  border: 1px dashed #000;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: #000;
+  text-align: center;
+}
+
+.live-toggle-btn.active {
+  border-style: solid;
+}
+
+.live-toggle-btn:hover {
+  background: #fafafa;
+}
+
 /* ── Canvas ── */
 
 .canvas-area {
@@ -454,6 +485,21 @@ body {
 
 #drawing-canvas { z-index: 2; cursor: crosshair; }
 #physics-canvas { z-index: 1; }
+
+/* Inline text input on canvas */
+.canvas-text-input {
+  position: absolute;
+  z-index: 5;
+  background: transparent;
+  border: 1px dashed #999;
+  outline: none;
+  font-family: 'Velvelyne', serif;
+  padding: 2px 4px;
+  min-width: 60px;
+  min-height: 1.5em;
+  resize: both;
+  overflow: hidden;
+}
 
 /* ── Right panel — stamps ── */
 
@@ -710,21 +756,6 @@ body {
 
 .gallery-card {
   border: 1px dashed #000;
-  position: relative;
-}
-
-.gallery-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  background-size: 200px 200px;
-  opacity: 0.1;
-  mix-blend-mode: multiply;
-  pointer-events: none;
 }
 
 .gallery-card img {
@@ -733,6 +764,27 @@ body {
   object-fit: cover;
   display: block;
   border-bottom: 1px dashed #000;
+  position: relative;
+}
+
+/* Grain overlay on gallery images only — use a wrapper */
+.gallery-card .gallery-img-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.gallery-card .gallery-img-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 100px 100px;
+  opacity: 0.25;
+  mix-blend-mode: multiply;
+  pointer-events: none;
 }
 
 .gallery-card-info {
@@ -945,6 +997,17 @@ body {
 
 .editor-frame.dark .scene-tab:hover { color: #ccc; }
 .editor-frame.dark .scene-tab.active { color: #fff; }
+
+.editor-frame.dark .live-toggle-btn {
+  background: #2a2a2a;
+  border-color: #555;
+  color: #ccc;
+}
+
+.editor-frame.dark .live-toggle-btn.active {
+  border-color: #fff;
+  color: #fff;
+}
 
 .editor-frame.dark .gallery-page {
   background: #222;
