@@ -1,6 +1,61 @@
 import { useRef, useEffect, useCallback } from 'react';
+import * as stylex from '@stylexjs/stylex';
 import { useStore, GRID_SIZE } from '../state/store.jsx';
 import { redrawCanvas, interpolateCells } from '../lib/tools.js';
+import { PhysicsEngine } from '../lib/physics.js';
+import { stamps, getStampImage } from '../lib/stamps.js';
+import { getDitheredStamp } from '../lib/dither.js';
+import { breakpoints } from '../tokens.stylex.js';
+
+const s = stylex.create({
+  canvasArea: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'stretch',
+    justifyContent: 'stretch',
+    minWidth: 0,
+    minHeight: {
+      default: null,
+      [breakpoints.mobile]: 0,
+    },
+  },
+  canvasContainer: {
+    position: 'relative',
+    overflow: 'auto',
+    width: '100%',
+    height: '100%',
+    padding: {
+      default: 12,
+      [breakpoints.mobile]: 4,
+    },
+  },
+  canvasContainerLight: {
+    background: '#919191',
+  },
+  canvasContainerDark: {
+    background: '#333',
+  },
+  canvasInner: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    background: '#fff',
+  },
+  canvas: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  drawingCanvas: {
+    zIndex: 2,
+    cursor: 'crosshair',
+  },
+  physicsCanvas: {
+    zIndex: 1,
+  },
+});
 
 export default function Canvas() {
   const { state, dispatch } = useStore();
@@ -10,25 +65,35 @@ export default function Canvas() {
   const strokeRef = useRef(null);
   const animRef = useRef(null);
   const isDrawingRef = useRef(false);
+  const physicsEngineRef = useRef(null);
+  const physicsAnimRef = useRef(null);
 
   const currentScene = state.scenes[state.currentSceneIndex];
 
   // Resize canvases
   useEffect(() => {
-    const inner = innerRef.current;
-    if (!inner) return;
-    const w = inner.clientWidth;
-    const h = inner.clientHeight;
-    [drawRef, physRef].forEach(ref => {
-      const c = ref.current;
-      if (!c) return;
-      c.width = w * window.devicePixelRatio;
-      c.height = h * window.devicePixelRatio;
-      c.style.width = w + 'px';
-      c.style.height = h + 'px';
-      c.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
-    });
-  }, [state.fullscreen, state.showGallery]);
+    const resize = () => {
+      const inner = innerRef.current;
+      if (!inner) return;
+      const w = inner.clientWidth;
+      const h = inner.clientHeight;
+      if (w === 0 || h === 0) return;
+      [drawRef, physRef].forEach(ref => {
+        const c = ref.current;
+        if (!c) return;
+        c.width = w * window.devicePixelRatio;
+        c.height = h * window.devicePixelRatio;
+        c.style.width = w + 'px';
+        c.style.height = h + 'px';
+        c.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
+      });
+      redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state);
+    };
+    // Run on next frame to ensure layout is settled
+    requestAnimationFrame(resize);
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [state.fullscreen, state.showGallery, state.currentSceneIndex]);
 
   // Redraw on any relevant change
   useEffect(() => {
@@ -54,6 +119,108 @@ export default function Canvas() {
     animRef.current = requestAnimationFrame(animate);
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [state.liveMode, state.physicsOn, state.showGallery, currentScene.strokes, state.pixelation]);
+
+  // Physics engine
+  useEffect(() => {
+    if (!state.physicsOn) {
+      // Stop physics
+      if (physicsEngineRef.current) {
+        physicsEngineRef.current.stop();
+        physicsEngineRef.current.clear();
+      }
+      if (physicsAnimRef.current) {
+        cancelAnimationFrame(physicsAnimRef.current);
+        physicsAnimRef.current = null;
+      }
+      // Clear physics canvas and show drawing canvas
+      const physCanvas = physRef.current;
+      if (physCanvas) {
+        const ctx = physCanvas.getContext('2d');
+        ctx.clearRect(0, 0, physCanvas.width / window.devicePixelRatio, physCanvas.height / window.devicePixelRatio);
+      }
+      if (drawRef.current) drawRef.current.style.opacity = '1';
+      return;
+    }
+
+    // Start physics
+    if (!physicsEngineRef.current) {
+      physicsEngineRef.current = new PhysicsEngine();
+    }
+    const physics = physicsEngineRef.current;
+    physics.clear();
+
+    const inner = innerRef.current;
+    if (!inner) return;
+    physics.setCanvasSize(inner.clientWidth, inner.clientHeight);
+    physics.addStrokes(currentScene.strokes);
+    physics.start();
+
+    // Expose shake for external callers
+    window._physicsShake = () => physics.shake();
+
+    // Hide drawing canvas, show physics
+    if (drawRef.current) drawRef.current.style.opacity = '0';
+
+    const physCanvas = physRef.current;
+    if (!physCanvas) return;
+    const ctx = physCanvas.getContext('2d');
+    const w = physCanvas.width / window.devicePixelRatio;
+    const h = physCanvas.height / window.devicePixelRatio;
+
+    function frame() {
+      ctx.clearRect(0, 0, w, h);
+
+      const bodies = physics.getState();
+      bodies.forEach(({ body, stroke, position, angle }) => {
+        ctx.save();
+        ctx.translate(position.x, position.y);
+        ctx.rotate(angle);
+
+        if (stroke.type === 'stamp') {
+          const stamp = stamps[stroke.stampIndex];
+          if (stamp) {
+            const img = getStampImage(stamp);
+            const s = stroke.size;
+            if (img.complete) {
+              const dithered = getDitheredStamp(stamp, img, Math.round(s * window.devicePixelRatio), {
+                pixelScale: 3,
+                mode: 'riso',
+              });
+              if (dithered) {
+                ctx.drawImage(dithered, -s / 2, -s / 2, s, s);
+              } else {
+                ctx.drawImage(img, -s / 2, -s / 2, s, s);
+              }
+            }
+          }
+        } else if (stroke.type === 'brush') {
+          ctx.fillStyle = stroke.color;
+          if (stroke.cells) {
+            const allCoords = stroke.cells.map(k => k.split(',').map(Number));
+            const xs = allCoords.map(c => c[0]), ys = allCoords.map(c => c[1]);
+            const cx = (Math.min(...xs) + Math.max(...xs) + GRID_SIZE) / 2;
+            const cy = (Math.min(...ys) + Math.max(...ys) + GRID_SIZE) / 2;
+            for (const [gx, gy] of allCoords) {
+              ctx.fillRect(gx - cx, gy - cy, GRID_SIZE, GRID_SIZE);
+            }
+          }
+        }
+
+        ctx.restore();
+      });
+
+      physicsAnimRef.current = requestAnimationFrame(frame);
+    }
+
+    frame();
+
+    return () => {
+      if (physicsAnimRef.current) {
+        cancelAnimationFrame(physicsAnimRef.current);
+        physicsAnimRef.current = null;
+      }
+    };
+  }, [state.physicsOn]);
 
   const getPos = useCallback((e) => {
     if (e.touches) {
@@ -143,11 +310,11 @@ export default function Canvas() {
       return;
     }
 
-    if (state.tool === 'crayon' || state.tool === 'fractal') {
+    if (state.tool === 'crayon' || state.tool === 'marker') {
       isDrawingRef.current = true;
       strokeRef.current = {
         type: state.tool,
-        color: state.tool === 'fractal' ? '#000' : state.color,
+        color: state.color,
         size: state.brushSize, points: [{ x, y }],
       };
       return;
@@ -176,7 +343,7 @@ export default function Canvas() {
 
     const s = strokeRef.current;
 
-    if (s.type === 'crayon' || s.type === 'fractal') {
+    if (s.type === 'crayon' || s.type === 'marker') {
       const pts = s.points;
       const last = pts[pts.length - 1];
       const dist = Math.sqrt((x - last.x) ** 2 + (y - last.y) ** 2);
@@ -243,17 +410,28 @@ export default function Canvas() {
   if (state.showGallery) return null;
 
   return (
-    <div className="canvas-area">
-      <div className="canvas-container" onWheel={onWheel}>
+    <div {...stylex.props(s.canvasArea)}>
+      <div
+        {...stylex.props(
+          s.canvasContainer,
+          state.darkMode ? s.canvasContainerDark : s.canvasContainerLight,
+        )}
+        onWheel={onWheel}
+      >
         <div
-          className="canvas-inner"
+          {...stylex.props(s.canvasInner)}
           ref={innerRef}
           style={state.zoom !== 1 ? { transform: `scale(${state.zoom})`, transformOrigin: 'top left' } : undefined}
         >
-          <canvas ref={physRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }} />
+          <canvas
+            ref={physRef}
+            id="physics-canvas"
+            {...stylex.props(s.canvas, s.physicsCanvas)}
+          />
           <canvas
             ref={drawRef}
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, cursor: 'crosshair' }}
+            id="drawing-canvas"
+            {...stylex.props(s.canvas, s.drawingCanvas)}
             onMouseDown={onDown}
             onMouseMove={onMove}
             onMouseUp={onUp}

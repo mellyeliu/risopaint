@@ -198,51 +198,30 @@ export function drawStroke(ctx, stroke, state) {
     }
     ctx.globalAlpha = 1;
     ctx.restore();
-  } else if (stroke.type === 'fractal') {
+  } else if (stroke.type === 'marker') {
     if (!stroke.points || stroke.points.length < 2) return;
     ctx.save();
     ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = 0.8;
-    ctx.globalAlpha = 0.6;
-    const size = Math.max(stroke.size, 4);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const size = Math.max(stroke.size, 2);
+    ctx.lineWidth = size * 0.8;
+    ctx.setLineDash([1, size * 0.6]);
+
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
     for (let i = 1; i < stroke.points.length; i++) {
-      const p = stroke.points[i];
       const prev = stroke.points[i - 1];
-      ctx.beginPath();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      if (i % 4 === 0) {
-        const dx = p.x - prev.x;
-        const dy = p.y - prev.y;
-        const angle = Math.atan2(dy, dx);
-        const len = size * (0.3 + Math.random() * 0.8);
-        const spread = 0.5 + Math.random() * 0.7;
-        for (const sign of [-1, 1]) {
-          const branchAngle = angle + sign * spread;
-          let bx = p.x, by = p.y, bLen = len, depth = 0, curAngle = branchAngle;
-          while (depth < 2 && bLen > 2) {
-            const ex = bx + Math.cos(curAngle) * bLen;
-            const ey = by + Math.sin(curAngle) * bLen;
-            ctx.globalAlpha = 0.4 - depth * 0.12;
-            ctx.lineWidth = Math.max(0.3, 0.7 - depth * 0.2);
-            ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke();
-            if (Math.random() > 0.4) {
-              const subAngle = curAngle + (Math.random() - 0.5) * 1.2;
-              const subLen = bLen * 0.6;
-              const sx = ex + Math.cos(subAngle) * subLen;
-              const sy = ey + Math.sin(subAngle) * subLen;
-              ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(sx, sy); ctx.stroke();
-            }
-            bx = ex; by = ey; bLen *= 0.6;
-            curAngle += (Math.random() - 0.5) * 0.6;
-            depth++;
-          }
-        }
-      }
+      const p = stroke.points[i];
+      const mx = (prev.x + p.x) / 2;
+      const my = (prev.y + p.y) / 2;
+      ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
     }
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = 1;
+    const last = stroke.points[stroke.points.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
     ctx.restore();
   }
 }
