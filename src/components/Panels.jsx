@@ -327,9 +327,18 @@ const s = stylex.create({
   sliderVal: {
     fontSize: 12,
     color: '#999',
-    minWidth: 14,
+    minWidth: 24,
+    width: 32,
     textAlign: 'right',
     flexShrink: 0,
+    background: 'transparent',
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderBottomStyle: 'dashed',
+    borderBottomColor: 'transparent',
+    outline: 'none',
+    fontFamily: 'inherit',
+    padding: 0,
   },
   sliderValDark: {
     color: '#888',
@@ -512,11 +521,26 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
           <input
             type="range"
             {...stylex.props(s.slider, darkMode && s.sliderDark)}
-            min="1" max="80"
+            min="1" max="100"
             value={state.brushSize}
             onChange={e => dispatch({ type: 'SET_BRUSH_SIZE', size: parseInt(e.target.value) })}
           />
-          <span {...stylex.props(s.sliderVal, darkMode && s.sliderValDark)}>{state.brushSize}</span>
+          <input
+            type="text"
+            {...stylex.props(s.sliderVal, darkMode && s.sliderValDark)}
+            value={state.tool === 'line' ? Math.max(0.5, state.brushSize / 6).toFixed(1) : state.brushSize}
+            onChange={e => {
+              const raw = e.target.value.replace(/[^0-9.]/g, '');
+              if (raw === '') return;
+              const val = state.tool === 'line' ? Math.round(parseFloat(raw) * 6) : parseInt(raw);
+              if (!isNaN(val) && val >= 1) dispatch({ type: 'SET_BRUSH_SIZE', size: Math.min(val, 200) });
+            }}
+            onBlur={e => {
+              const raw = e.target.value.replace(/[^0-9.]/g, '');
+              const val = state.tool === 'line' ? Math.round(parseFloat(raw) * 6) : parseInt(raw);
+              if (isNaN(val) || val < 1) dispatch({ type: 'SET_BRUSH_SIZE', size: 6 });
+            }}
+          />
         </div>
       </div>
 
@@ -625,7 +649,7 @@ function ToolIcon({ tool, darkMode, svgStyle }) {
     text: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
     line: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>,
     crayon: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 2.5 L21.5 6.5 L8 20 L2 22 L4 16 Z"/><path d="M15 5 L19 9"/></svg>,
-    marker: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 20 Q8 14 12 12 Q16 10 20 4"/><circle cx="6" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="18" cy="6" r="1.2" fill="currentColor" stroke="none"/></svg>,
+    marker: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.5 3.5 L20.5 8.5 L9 20 L4 21 L5 16 Z"/><path d="M15.5 3.5 L18 3 L21 6 L20.5 8.5"/><line x1="5" y1="16" x2="9" y2="20"/><line x1="8" y1="21" x2="11" y2="21" strokeDasharray="2 2"/></svg>,
   };
   return icons[tool] || null;
 }

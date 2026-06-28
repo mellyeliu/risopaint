@@ -304,7 +304,7 @@ export default function Canvas() {
       const gx = Math.floor(x / GRID_SIZE) * GRID_SIZE;
       const gy = Math.floor(y / GRID_SIZE) * GRID_SIZE;
       strokeRef.current = {
-        type: 'gridline', color: state.color,
+        type: 'gridline', color: state.color, size: state.brushSize,
         cells: [`${gx},${gy}`], cellSet: new Set([`${gx},${gy}`]),
       };
       return;

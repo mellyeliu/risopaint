@@ -3,7 +3,7 @@ import * as stylex from '@stylexjs/stylex';
 import { useStore } from '../state/store.jsx';
 import { getGalleryItems, submitToGallery } from '../lib/gallery.js';
 import { drawStroke } from '../lib/tools.js';
-import { applyGrain } from '../lib/grain.js';
+import { applyGrainExport } from '../lib/grain.js';
 import { breakpoints, grain } from '../tokens.stylex.js';
 
 const s = stylex.create({
@@ -318,7 +318,7 @@ export function SubmitPopup({ open, onClose }) {
     const ctx = tempCanvas.getContext('2d');
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     currentScene.strokes.forEach(stroke => drawStroke(ctx, stroke, state));
-    applyGrain(ctx, w, h, 25);
+    applyGrainExport(ctx, w, h, 25);
 
     setStatus('submitting');
     try {

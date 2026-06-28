@@ -83,16 +83,16 @@ export function drawStroke(ctx, stroke, state) {
         const drawImg = dithered || img;
 
         if (stamp.name === 'butterfly') {
-          const flutter = 0.85 + Math.sin(time * 6 + id) * 0.15;
+          const flutter = 0.92 + Math.sin(time * 3 + id) * 0.08;
           ctx.translate(stroke.x, stroke.y);
           ctx.scale(flutter, 1);
           ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
         } else if (stamp.name === 'cloud') {
-          const drift = Math.sin(time * 0.3 + id * 0.1) * 8;
+          const drift = Math.sin(time * 0.15 + id * 0.1) * 5;
           ctx.translate(stroke.x + drift, stroke.y);
           ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
         } else if (stamp.name === 'ladybug') {
-          const wingPhase = Math.sin(time * 1.5 + id);
+          const wingPhase = Math.sin(time * 2 + id);
           const isOpen = wingPhase > 0.3;
           ctx.translate(stroke.x, stroke.y);
           if (isOpen && stamp.svgOpen) {
@@ -107,24 +107,24 @@ export function drawStroke(ctx, stroke, state) {
             ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
           }
         } else if (stamp.name === 'rainbow') {
-          const shimmer = Math.sin(time * 3 + id) * 0.02;
+          const shimmer = Math.sin(time * 1.5 + id) * 0.01;
           ctx.translate(stroke.x, stroke.y);
           ctx.transform(1, 0, shimmer, 1, 0, 0);
           ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
         } else if (stamp.name === 'sparkle' || stamp.name === 'four-star') {
-          const pulse = 1 + Math.sin(time * 2.5 + id) * 0.06;
+          const pulse = 1 + Math.sin(time * 1.2 + id) * 0.03;
           ctx.translate(stroke.x, stroke.y);
           ctx.scale(pulse, pulse);
           ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
         } else if (stamp.name === 'flower' || stamp.name === 'lotus') {
-          const sway = Math.sin(time * 1.2 + id) * 0.04;
+          const sway = Math.sin(time * 0.6 + id) * 0.02;
           ctx.translate(stroke.x, stroke.y + s / 2);
           ctx.rotate(sway);
           ctx.drawImage(drawImg, -s / 2, -s, s, s);
         } else {
-          const wobble = Math.sin(time * 1.5 + id) * 1.2;
-          const pulse = 1 + Math.sin(time * 2 + id * 0.7) * 0.015;
-          const rotate = Math.sin(time * 0.8 + id * 0.5) * 0.03;
+          const wobble = Math.sin(time * 0.7 + id) * 0.6;
+          const pulse = 1 + Math.sin(time * 1 + id * 0.7) * 0.008;
+          const rotate = Math.sin(time * 0.4 + id * 0.5) * 0.015;
           ctx.translate(stroke.x, stroke.y);
           ctx.rotate(rotate);
           ctx.scale(pulse, pulse);
@@ -148,15 +148,18 @@ export function drawStroke(ctx, stroke, state) {
     }
   } else if (stroke.type === 'text') {
     ctx.save();
-    ctx.font = `${stroke.size}px 'Syne Mono', monospace`;
+    ctx.font = `400 ${stroke.size}px Helvetica, Arial, sans-serif`;
     ctx.fillStyle = stroke.color;
-    ctx.fillText(stroke.text, stroke.x, stroke.y);
+    const lines = stroke.text.split('\n');
+    for (let l = 0; l < lines.length; l++) {
+      ctx.fillText(lines[l], stroke.x, stroke.y + l * stroke.size * 1.2);
+    }
     ctx.restore();
   } else if (stroke.type === 'gridline') {
     if (!stroke.cells || stroke.cells.length < 1) return;
     ctx.save();
     ctx.strokeStyle = stroke.color || '#000';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = Math.max(0.5, (stroke.size || 6) / 6);
     const cellSet = new Set(stroke.cells);
     for (const key of stroke.cells) {
       const [gx, gy] = key.split(',').map(Number);
@@ -184,8 +187,8 @@ export function drawStroke(ctx, stroke, state) {
       const count = Math.max(5, Math.floor(size));
       for (let j = 0; j < count; j++) {
         const angle = Math.random() * Math.PI * 2;
-        const dist = (Math.random() + Math.random() + Math.random()) / 3;
-        const spread = size * (0.3 + dist * 1.5);
+        const dist = Math.sqrt(Math.random());
+        const spread = size * dist * 1.5;
         const ox = Math.cos(angle) * spread;
         const oy = Math.sin(angle) * spread;
         const r = Math.random() * Math.max(1, size * 0.2) + 0.5;
@@ -206,7 +209,10 @@ export function drawStroke(ctx, stroke, state) {
     ctx.lineJoin = 'round';
     const size = Math.max(stroke.size, 2);
     ctx.lineWidth = size * 0.8;
-    ctx.setLineDash([1, size * 0.6]);
+    const dashGap = size * 0.6;
+    const time = state?.liveMode ? performance.now() * 0.008 : 0;
+    ctx.setLineDash([1, dashGap]);
+    ctx.lineDashOffset = -time;
 
     ctx.beginPath();
     ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
@@ -226,6 +232,36 @@ export function drawStroke(ctx, stroke, state) {
   }
 }
 
+// Cached grid pattern
+let gridCache = null;
+let gridCacheW = 0;
+let gridCacheH = 0;
+
+function getGridPattern(w, h) {
+  if (gridCache && gridCacheW === w && gridCacheH === h) return gridCache;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = w;
+  offscreen.height = h;
+  const ctx = offscreen.getContext('2d');
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += GRID_SIZE) {
+    ctx.moveTo(x, 0); ctx.lineTo(x, h);
+  }
+  for (let y = 0; y <= h; y += GRID_SIZE) {
+    ctx.moveTo(0, y); ctx.lineTo(w, y);
+  }
+  ctx.stroke();
+  gridCache = offscreen;
+  gridCacheW = w;
+  gridCacheH = h;
+  return offscreen;
+}
+
+// Reusable pixelation canvas
+let pixelCanvas = null;
+
 export function redrawCanvas(canvas, strokes, currentStroke, state) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -234,17 +270,8 @@ export function redrawCanvas(canvas, strokes, currentStroke, state) {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Draw grid
-  ctx.save();
-  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-  ctx.lineWidth = 0.5;
-  for (let x = 0; x <= w; x += GRID_SIZE) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-  }
-  for (let y = 0; y <= h; y += GRID_SIZE) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-  }
-  ctx.restore();
+  // Draw cached grid
+  ctx.drawImage(getGridPattern(w, h), 0, 0);
 
   // Draw all strokes
   const allStrokes = [...strokes];
@@ -254,17 +281,17 @@ export function redrawCanvas(canvas, strokes, currentStroke, state) {
   // Pixelation
   if (state.pixelation > 1) {
     const scale = 1 / state.pixelation;
-    const tempCanvas = document.createElement('canvas');
     const tw = Math.floor(w * scale);
     const th = Math.floor(h * scale);
-    tempCanvas.width = tw;
-    tempCanvas.height = th;
-    const tempCtx = tempCanvas.getContext('2d');
+    if (!pixelCanvas) pixelCanvas = document.createElement('canvas');
+    pixelCanvas.width = tw;
+    pixelCanvas.height = th;
+    const tempCtx = pixelCanvas.getContext('2d');
     tempCtx.imageSmoothingEnabled = false;
     tempCtx.drawImage(canvas, 0, 0, tw, th);
     ctx.clearRect(0, 0, w, h);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tempCanvas, 0, 0, w, h);
+    ctx.drawImage(pixelCanvas, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
   }
 
