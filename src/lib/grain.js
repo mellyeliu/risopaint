@@ -1,7 +1,9 @@
-const GRAIN_FRAMES = 4;
-const GRAIN_TILE = 256;
+const GRAIN_FRAMES = 6;
+const GRAIN_TILE = 512;
 let grainCanvases = null;
 let grainFrame = 0;
+let cachedPattern = null;
+let cachedPatternFrame = -1;
 
 function initGrainFrames() {
   if (grainCanvases) return;
@@ -14,7 +16,7 @@ function initGrainFrames() {
     const imageData = ctx.createImageData(GRAIN_TILE, GRAIN_TILE);
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
-      const v = Math.floor(Math.random() * 50);
+      const v = 128 + Math.floor(Math.random() * 51) - 25;
       data[i] = v;
       data[i + 1] = v;
       data[i + 2] = v;
@@ -31,14 +33,18 @@ export function applyGrain(ctx, w, h, amount = 25) {
   if (pw <= 0 || ph <= 0) return;
 
   initGrainFrames();
-  const tile = grainCanvases[grainFrame % GRAIN_FRAMES];
+  const fi = grainFrame % GRAIN_FRAMES;
   grainFrame++;
 
+  if (cachedPatternFrame !== fi || !cachedPattern) {
+    cachedPattern = ctx.createPattern(grainCanvases[fi], 'repeat');
+    cachedPatternFrame = fi;
+  }
+
   ctx.save();
-  ctx.globalAlpha = amount / 100;
+  ctx.globalAlpha = amount / 50;
   ctx.globalCompositeOperation = 'overlay';
-  const pat = ctx.createPattern(tile, 'repeat');
-  ctx.fillStyle = pat;
+  ctx.fillStyle = cachedPattern;
   ctx.fillRect(0, 0, pw, ph);
   ctx.restore();
 }
