@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { useStore, GRID_SIZE } from '../state/store.jsx';
-import { redrawCanvas, interpolateCells, drawStroke, getGridPattern } from '../lib/tools.js';
+import { redrawCanvas, interpolateCells, drawStroke, getGridPattern, clearStrokeCache } from '../lib/tools.js';
 import { PhysicsEngine } from '../lib/physics.js';
 import { stamps, getStampImage } from '../lib/stamps.js';
 import { getDitheredStamp } from '../lib/dither.js';
@@ -848,7 +848,7 @@ export default function Canvas() {
       color: state.color, size: state.brushSize,
       cells: [`${gx},${gy}`], cellSet: new Set([`${gx},${gy}`]),
     };
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
   }, [state, currentScene, dispatch]);
 
   const onMove = useCallback((e) => {
@@ -890,7 +890,7 @@ export default function Canvas() {
       if (!s.cellSet.has(key)) { s.cellSet.add(key); s.cells.push(key); }
     }
 
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
   }, [state, currentScene]);
 
   const onUp = useCallback(() => {

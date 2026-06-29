@@ -374,22 +374,48 @@ export function getGridPattern(w, h) {
 // Reusable pixelation canvas
 let pixelCanvas = null;
 
-export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) {
+let strokeCache = null;
+let strokeCacheCount = -1;
+let strokeCacheW = 0;
+let strokeCacheH = 0;
+
+export function clearStrokeCache() {
+  strokeCache = null;
+  strokeCacheCount = -1;
+}
+
+export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, skipGrain) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const w = canvas.width / window.devicePixelRatio;
   const h = canvas.height / window.devicePixelRatio;
 
-  if (!state.smearMode || !canvas._hasDrawn || strokes.length === 0) {
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(getGridPattern(w, h), 0, 0);
-    canvas._hasDrawn = true;
+  const needsFullRedraw = !state.smearMode || !canvas._hasDrawn || strokes.length === 0;
+
+  if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h) {
+    if (!strokeCache) {
+      strokeCache = document.createElement('canvas');
+    }
+    strokeCache.width = canvas.width;
+    strokeCache.height = canvas.height;
+    const cacheCtx = strokeCache.getContext('2d');
+    cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
+    for (let i = 0; i < strokes.length; i++) {
+      drawStroke(cacheCtx, strokes[i], state);
+    }
+    strokeCacheCount = strokes.length;
+    strokeCacheW = w;
+    strokeCacheH = h;
   }
 
-  // Draw all strokes
-  for (let i = 0; i < strokes.length; i++) {
-    drawStroke(ctx, strokes[i], state);
-  }
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(strokeCache, 0, 0);
+  ctx.restore();
+  canvas._hasDrawn = true;
+
   if (currentStroke) drawStroke(ctx, currentStroke, state);
 
   // Pixelation
@@ -409,7 +435,7 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) 
     ctx.imageSmoothingEnabled = true;
   }
 
-  applyGrain(ctx, w, h, 25);
+  if (!skipGrain) applyGrain(ctx, w, h, 25);
 }
 
 export function interpolateCells(lastKey, gx, gy, cellSet, cells) {
