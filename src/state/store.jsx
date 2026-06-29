@@ -22,6 +22,7 @@ const initialState = {
   zoom: 1,
   showGallery: false,
   liveMode: true,
+  smearMode: false,
 };
 
 // Load from localStorage
@@ -106,18 +107,65 @@ function reducer(state, action) {
     case 'SET_SHOW_GALLERY':
       newState = { ...state, showGallery: action.value };
       break;
+    case 'SET_SMEAR_MODE':
+      newState = { ...state, smearMode: action.value };
+      break;
     case 'SET_ZOOM':
       newState = { ...state, zoom: Math.max(0.25, Math.min(4, action.value)) };
       break;
     case 'ADD_STROKE':
-      newState = {
-        ...state,
-        scenes: state.scenes.map((s, i) =>
-          i === state.currentSceneIndex
-            ? { ...s, strokes: [...s.strokes, action.stroke], redoStack: [] }
-            : s
-        ),
-      };
+      if (action.stroke.type === 'erase') {
+        // Eraser — remove strokes that overlap with erased cells
+        const erasedCells = new Set(action.stroke.cells || []);
+        const scene = state.scenes[state.currentSceneIndex];
+        const brushSize = Math.max(1, Math.round((action.stroke.size || 6) / GRID_SIZE));
+        // Expand erased area by brush size
+        const expandedErase = new Set();
+        for (const key of erasedCells) {
+          const [gx, gy] = key.split(',').map(Number);
+          for (let dx = -brushSize; dx <= brushSize; dx++) {
+            for (let dy = -brushSize; dy <= brushSize; dy++) {
+              expandedErase.add(`${gx + dx * GRID_SIZE},${gy + dy * GRID_SIZE}`);
+            }
+          }
+        }
+        const filtered = scene.strokes.filter(s => {
+          if (s.type === 'brush' || s.type === 'gridline') {
+            // Remove if any cells overlap
+            return !s.cells?.some(c => expandedErase.has(c));
+          } else if (s.type === 'stamp' || s.type === 'start' || s.type === 'finish') {
+            // Remove if center is in erased area
+            const gx = Math.floor(s.x / GRID_SIZE) * GRID_SIZE;
+            const gy = Math.floor(s.y / GRID_SIZE) * GRID_SIZE;
+            return !expandedErase.has(`${gx},${gy}`);
+          } else if (s.type === 'crayon' || s.type === 'marker') {
+            // Remove if any points are in erased area
+            return !s.points?.some(p => {
+              const gx = Math.floor(p.x / GRID_SIZE) * GRID_SIZE;
+              const gy = Math.floor(p.y / GRID_SIZE) * GRID_SIZE;
+              return expandedErase.has(`${gx},${gy}`);
+            });
+          }
+          return true;
+        });
+        newState = {
+          ...state,
+          scenes: state.scenes.map((s, i) =>
+            i === state.currentSceneIndex
+              ? { ...s, strokes: filtered, redoStack: [] }
+              : s
+          ),
+        };
+      } else {
+        newState = {
+          ...state,
+          scenes: state.scenes.map((s, i) =>
+            i === state.currentSceneIndex
+              ? { ...s, strokes: [...s.strokes, action.stroke], redoStack: [] }
+              : s
+          ),
+        };
+      }
       break;
     case 'UNDO': {
       const scene = state.scenes[state.currentSceneIndex];

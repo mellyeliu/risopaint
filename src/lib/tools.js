@@ -145,7 +145,7 @@ export function drawStroke(ctx, stroke, state) {
         const drawImg = dithered || img;
 
         if (stamp.name === 'butterfly') {
-          const flutter = 0.92 + Math.sin(time * 3 + id) * 0.08;
+          const flutter = 0.7 + Math.sin(time * 3 + id) * 0.3;
           ctx.translate(stroke.x, stroke.y);
           ctx.scale(flutter, 1);
           ctx.drawImage(drawImg, -s / 2, -s / 2, s, s);
@@ -291,6 +291,47 @@ export function drawStroke(ctx, stroke, state) {
 
     ctx.setLineDash([]);
     ctx.restore();
+  } else if (stroke.type === 'start' || stroke.type === 'finish') {
+    ctx.save();
+    const fw = stroke.width || 50;
+    const fh = stroke.height || 60;
+    const fx = stroke.x - fw / 2;
+    const fy = stroke.y - fh;
+    const color = stroke.type === 'start' ? '#2ecc71' : '#e74c3c';
+    const label = stroke.type === 'start' ? 'start' : 'finish';
+    // Dotted rectangle
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(fx, fy, fw, fh);
+    ctx.setLineDash([]);
+    // Platform bottom — solid black line
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(fx - 5, stroke.y);
+    ctx.lineTo(fx + fw + 5, stroke.y);
+    ctx.stroke();
+    // Flag
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(fx + fw / 2, fy);
+    ctx.lineTo(fx + fw / 2 + 15, fy + 8);
+    ctx.lineTo(fx + fw / 2, fy + 16);
+    ctx.fill();
+    // Pole
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(fx + fw / 2, fy);
+    ctx.lineTo(fx + fw / 2, fy + fh);
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = color;
+    ctx.font = "bold 10px 'Velvelyne', serif";
+    ctx.textAlign = 'center';
+    ctx.fillText(label, stroke.x, fy - 4);
+    ctx.restore();
   }
 }
 
@@ -330,10 +371,11 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) 
   const w = canvas.width / window.devicePixelRatio;
   const h = canvas.height / window.devicePixelRatio;
 
-  ctx.clearRect(0, 0, w, h);
-
-  // Draw cached grid
-  ctx.drawImage(getGridPattern(w, h), 0, 0);
+  if (!state.smearMode || !canvas._hasDrawn) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(getGridPattern(w, h), 0, 0);
+    canvas._hasDrawn = true;
+  }
 
   // Draw all strokes
   for (let i = 0; i < strokes.length; i++) {

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { useStore, GRID_SIZE } from '../state/store.jsx';
-import { redrawCanvas, interpolateCells } from '../lib/tools.js';
+import { redrawCanvas, interpolateCells, drawStroke } from '../lib/tools.js';
 import { PhysicsEngine } from '../lib/physics.js';
 import { stamps, getStampImage } from '../lib/stamps.js';
 import { getDitheredStamp } from '../lib/dither.js';
@@ -159,11 +159,12 @@ export default function Canvas() {
     const inner = innerRef.current;
     if (!inner) return;
     physics.setCanvasSize(inner.clientWidth, inner.clientHeight);
-    physics.addStrokes(currentScene.strokes);
+    physics.addStrokes(currentScene.strokes, stamps);
     physics.start();
 
     // Always spawn the stick figure player
-    physics.spawnPlayer(30, 20, stamps);
+    const sp = physics.startPos || { x: 30, y: 20 };
+    physics.spawnPlayer(sp.x, sp.y, stamps);
 
     // Key handlers for player control
     const onKeyDown = (e) => {
@@ -193,9 +194,24 @@ export default function Canvas() {
     function frame() {
       ctx.clearRect(0, 0, w, h);
 
-      // Draw white background so no ghosting from layers below
+      // Draw white background + grid
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, w, h);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      for (let gx = 0; gx <= w; gx += GRID_SIZE) { ctx.moveTo(gx, 0); ctx.lineTo(gx, h); }
+      for (let gy = 0; gy <= h; gy += GRID_SIZE) { ctx.moveTo(0, gy); ctx.lineTo(w, gy); }
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw crayon/marker strokes at original positions (they're static in game)
+      for (const stroke of currentScene.strokes) {
+        if (stroke.type === 'crayon' || stroke.type === 'marker') {
+          drawStroke(ctx, stroke, state);
+        }
+      }
 
       const bodies = physics.getState();
       bodies.forEach(({ body, stroke, position, angle }) => {
@@ -207,17 +223,40 @@ export default function Canvas() {
           const stamp = stamps[stroke.stampIndex];
           if (stamp) {
             const img = getStampImage(stamp);
-            const s = stroke.size;
+            const sz = stroke.size;
             if (img.complete) {
-              const dithered = getDitheredStamp(stamp, img, Math.round(s * window.devicePixelRatio), {
+              const playerState = physics.getPlayerState();
+              // Butterfly — flutter + gray when invincible
+              if (stamp.name === 'butterfly') {
+                if (playerState?.invincible) {
+                  ctx.globalAlpha = 0.3;
+                  ctx.filter = 'grayscale(1)';
+                }
+                const flutter = 0.7 + Math.sin(performance.now() * 0.006 + position.x * 0.1) * 0.3;
+                ctx.scale(flutter, 1);
+              }
+              // Mushroom — horizontal stretch only, rooted at bottom
+              if (stamp.name === 'mushroom') {
+                const stretch = 1 + Math.sin(performance.now() * 0.004) * 0.06;
+                const squash = 1 / stretch; // conserve volume
+                ctx.translate(0, sz / 2 * (1 - squash)); // keep bottom rooted
+                ctx.scale(stretch, squash);
+              }
+              // Smoke — fade when crumbling
+              if (stamp.name === 'smoke' && !body.isStatic) {
+                ctx.globalAlpha = 0.4;
+              }
+              const dithered = getDitheredStamp(stamp, img, Math.round(sz * window.devicePixelRatio), {
                 pixelScale: 3,
                 mode: 'riso',
               });
               if (dithered) {
-                ctx.drawImage(dithered, -s / 2, -s / 2, s, s);
+                ctx.drawImage(dithered, -sz / 2, -sz / 2, sz, sz);
               } else {
-                ctx.drawImage(img, -s / 2, -s / 2, s, s);
+                ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
               }
+              ctx.globalAlpha = 1;
+              ctx.filter = 'none';
             }
           }
         } else if (stroke.type === 'brush') {
@@ -248,173 +287,224 @@ export default function Canvas() {
         const running = Math.abs(vx) > 0.5;
         const legCycle = running ? Math.sin(time * 2) : 0;
 
-        ctx.save();
-        ctx.translate(px, py - 4);
-        ctx.scale(1.5 * facing, 1.5); // flip horizontally based on direction
-        ctx.strokeStyle = '#000';
-        ctx.fillStyle = '#000';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        // Back braid (behind head)
-        const bounce = running ? Math.sin(time * 3) * 1 : 0;
-        ctx.beginPath();
-        ctx.moveTo(-5, -12);
-        ctx.lineTo(-6, -9 + bounce);
-        ctx.lineTo(-4, -7 + bounce);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(-4, -6.5 + bounce, 1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Back arm (behind body)
-        const armSwing = running ? legCycle * 0.5 : 0;
-        ctx.beginPath();
-        ctx.moveTo(0, -5);
-        ctx.lineTo(-6, -3 - armSwing * 3);
-        ctx.stroke();
-
-        // Head — circle
-        ctx.beginPath();
-        ctx.arc(0, -14, 5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Bangs — short parallel lines following head curve
-        ctx.lineWidth = 1.5;
-        for (let bx = -3; bx <= 3; bx += 2) {
-          const topY = -14 - Math.sqrt(Math.max(0, 25 - bx * bx));
-          ctx.beginPath();
-          ctx.moveTo(bx, topY);
-          ctx.lineTo(bx, topY + 3);
-          ctx.stroke();
-        }
-        ctx.lineWidth = 2;
-
-        // Front braid (in front of head)
-        ctx.beginPath();
-        ctx.moveTo(5, -12);
-        ctx.lineTo(6, -9 + bounce);
-        ctx.lineTo(4, -7 + bounce);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(4, -6.5 + bounce, 1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Body
-        ctx.beginPath();
-        ctx.moveTo(0, -9);
-        ctx.lineTo(0, 1);
-        ctx.stroke();
-
-        // Front arm (in front of body)
-        ctx.beginPath();
-        ctx.moveTo(0, -5);
-        ctx.lineTo(6, -3 + armSwing * 3);
-        ctx.stroke();
-
-        // Skirt
-        ctx.beginPath();
-        ctx.moveTo(-7, 6);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(7, 6);
-        ctx.lineTo(-7, 6);
-        ctx.stroke();
-
-        // Back leg
-        ctx.beginPath();
-        ctx.moveTo(-2, 6);
-        ctx.lineTo(-3 + legCycle * 4, 14);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(-3 + legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Front leg
-        ctx.beginPath();
-        ctx.moveTo(2, 6);
-        ctx.lineTo(3 - legCycle * 4, 14);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(3 - legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (playerState.won) {
-          ctx.fillStyle = '#000';
-          ctx.font = '16px Helvetica, Arial, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('⭐ you found the star! ⭐', 0, -30);
-        }
-        ctx.restore();
-
-        // Draw hoop net
-        if (playerState.hoop) {
-          const hp = playerState.hoop;
+        if (playerState.dead) {
+          // Dead sprite — lying sideways at ground level
           ctx.save();
-          ctx.strokeStyle = '#c0392b';
-          ctx.lineWidth = 4;
+          ctx.translate(px, py + 12);
+          ctx.scale(1.5, 1.5);
+          ctx.rotate(Math.PI / 2);
+          ctx.strokeStyle = '#000';
+          ctx.fillStyle = '#000';
+          ctx.lineWidth = 2;
           ctx.lineCap = 'round';
-          // Left pillar
+          ctx.lineJoin = 'round';
+          // Braids
           ctx.beginPath();
-          ctx.moveTo(hp.x - hp.w / 2, hp.y);
-          ctx.lineTo(hp.x - hp.w / 2, hp.y + hp.h);
+          ctx.moveTo(-5, -12); ctx.lineTo(-6, -9); ctx.lineTo(-4, -7);
           ctx.stroke();
-          // Right pillar
+          ctx.beginPath(); ctx.arc(-4, -6.5, 1, 0, Math.PI * 2); ctx.fill();
           ctx.beginPath();
-          ctx.moveTo(hp.x + hp.w / 2, hp.y);
-          ctx.lineTo(hp.x + hp.w / 2, hp.y + hp.h);
+          ctx.moveTo(5, -12); ctx.lineTo(6, -9); ctx.lineTo(4, -7);
           ctx.stroke();
-          // Bottom rim
+          ctx.beginPath(); ctx.arc(4, -6.5, 1, 0, Math.PI * 2); ctx.fill();
+          // Head
           ctx.beginPath();
-          ctx.moveTo(hp.x - hp.w / 2, hp.y + hp.h);
-          ctx.lineTo(hp.x + hp.w / 2, hp.y + hp.h);
+          ctx.arc(0, -14, 5, 0, Math.PI * 2);
           ctx.stroke();
-          // Net strings
-          ctx.strokeStyle = '#e74c3c';
+          // Bangs
           ctx.lineWidth = 1.5;
-          ctx.setLineDash([3, 3]);
-          for (let nx = hp.x - hp.w / 2 + 10; nx < hp.x + hp.w / 2; nx += 12) {
-            ctx.beginPath();
-            ctx.moveTo(nx, hp.y + hp.h);
-            ctx.lineTo(nx + (nx < hp.x ? -4 : 4), hp.y + hp.h + 20);
-            ctx.stroke();
+          for (let bx = -3; bx <= 3; bx += 2) {
+            const topY = -14 - Math.sqrt(Math.max(0, 25 - bx * bx));
+            ctx.beginPath(); ctx.moveTo(bx, topY); ctx.lineTo(bx, topY + 3); ctx.stroke();
           }
-          // Cross strings
-          for (let ny = hp.y + hp.h + 5; ny < hp.y + hp.h + 18; ny += 6) {
-            ctx.beginPath();
-            ctx.moveTo(hp.x - hp.w / 2 + 5, ny);
-            ctx.lineTo(hp.x + hp.w / 2 - 5, ny);
-            ctx.stroke();
-          }
-          ctx.setLineDash([]);
-
-          // Grainy white stipple on the net area
-          ctx.fillStyle = '#fff';
-          let nSeed = 42;
-          const nRand = () => { nSeed = (nSeed * 16807 + 11) % 2147483647; return (nSeed & 0x7fffffff) / 0x7fffffff; };
-          for (let i = 0; i < 80; i++) {
-            const nx = hp.x - hp.w / 2 + 8 + nRand() * (hp.w - 16);
-            const ny = hp.y + hp.h + nRand() * 18;
-            const nr = 0.5 + nRand() * 1.2;
-            ctx.globalAlpha = 0.15 + nRand() * 0.2;
-            ctx.beginPath();
-            ctx.arc(nx, ny, nr, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.globalAlpha = 1;
+          // X eyes
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-3, -16); ctx.lineTo(-1, -14);
+          ctx.moveTo(-1, -16); ctx.lineTo(-3, -14);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(1, -16); ctx.lineTo(3, -14);
+          ctx.moveTo(3, -16); ctx.lineTo(1, -14);
+          ctx.stroke();
+          // Blood
+          ctx.fillStyle = '#c0392b';
+          ctx.beginPath(); ctx.arc(1, -11, 1, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(1, -11); ctx.lineTo(2, -9); ctx.stroke();
+          // Body
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 1); ctx.stroke();
+          // Limp arms
+          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(5, -2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-5, -2); ctx.stroke();
+          // Skirt
+          ctx.beginPath();
+          ctx.moveTo(-7, 6); ctx.lineTo(0, 0); ctx.lineTo(7, 6); ctx.lineTo(-7, 6);
+          ctx.stroke();
+          // Legs
+          ctx.beginPath(); ctx.moveTo(-2, 6); ctx.lineTo(-3, 12); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(3, 12); ctx.stroke();
+          // Shoes
+          ctx.beginPath(); ctx.ellipse(-3, 13, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(3, 13, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
+        } else {
+          // Alive sprite
+          ctx.save();
+          ctx.translate(px, py - 4);
+          ctx.scale(1.5 * facing, 1.5);
+          ctx.strokeStyle = '#000';
+          ctx.fillStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
 
-          // Score display
+          const bounce = running ? Math.sin(time * 3) * 1 : 0;
+          // Back braid
+          ctx.beginPath();
+          ctx.moveTo(-5, -12); ctx.lineTo(-6, -9 + bounce); ctx.lineTo(-4, -7 + bounce);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(-4, -6.5 + bounce, 1, 0, Math.PI * 2); ctx.fill();
+          // Back arm
+          const armSwing = running ? legCycle * 0.5 : 0;
+          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-6, -3 - armSwing * 3); ctx.stroke();
+          // Head
+          ctx.beginPath(); ctx.arc(0, -14, 5, 0, Math.PI * 2); ctx.stroke();
+          // Bangs
+          ctx.lineWidth = 1.5;
+          for (let bx = -3; bx <= 3; bx += 2) {
+            const topY = -14 - Math.sqrt(Math.max(0, 25 - bx * bx));
+            ctx.beginPath(); ctx.moveTo(bx, topY); ctx.lineTo(bx, topY + 3); ctx.stroke();
+          }
+          ctx.lineWidth = 2;
+          // Front braid
+          ctx.beginPath();
+          ctx.moveTo(5, -12); ctx.lineTo(6, -9 + bounce); ctx.lineTo(4, -7 + bounce);
+          ctx.stroke();
+          ctx.beginPath(); ctx.arc(4, -6.5 + bounce, 1, 0, Math.PI * 2); ctx.fill();
+          // Body
+          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 1); ctx.stroke();
+          // Front arm
+          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(6, -3 + armSwing * 3); ctx.stroke();
+          // Skirt
+          ctx.beginPath();
+          ctx.moveTo(-7, 6); ctx.lineTo(0, 0); ctx.lineTo(7, 6); ctx.lineTo(-7, 6);
+          ctx.stroke();
+          // Back leg + shoe
+          ctx.beginPath(); ctx.moveTo(-2, 6); ctx.lineTo(-3 + legCycle * 4, 14); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(-3 + legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          // Front leg + shoe
+          ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(3 - legCycle * 4, 14); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(3 - legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          // Invincibility glow
+          if (playerState.invincible) {
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = 'gold';
+            ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          ctx.restore();
+        }
+
+        // Status text — top center only
+        if (playerState.dead) {
           ctx.save();
           ctx.fillStyle = '#c0392b';
+          ctx.font = "bold 20px 'Velvelyne', serif";
+          ctx.textAlign = 'center';
+          ctx.fillText('☠ game over — press R to respawn', w / 2, 30);
+          ctx.restore();
+        } else if (playerState.won) {
+          ctx.save();
+          ctx.fillStyle = '#2ecc71';
           ctx.font = "bold 22px 'Velvelyne', serif";
           ctx.textAlign = 'center';
-          // Flash on score
-          if (playerState.lastScoreTime && performance.now() - playerState.lastScoreTime < 600) {
-            ctx.fillText('🏀 score: ' + playerState.score, hp.x, hp.y - 6);
-          } else {
-            ctx.fillText('score: ' + playerState.score, hp.x, hp.y - 6);
-          }
+          ctx.fillText('✿ you made it! ✿', w / 2, 30);
+          ctx.restore();
+        } else if (playerState.invincible) {
+          ctx.save();
+          ctx.fillStyle = 'gold';
+          ctx.font = "bold 14px 'Velvelyne', serif";
+          ctx.textAlign = 'center';
+          const secs = Math.ceil((playerState.invincibleUntil - performance.now()) / 1000);
+          ctx.fillText('⭐ invincible — ' + secs + 's', w / 2, 30);
+          ctx.restore();
+        }
+
+        // Draw start zone in game mode
+        if (playerState.startZone) {
+          const sz = playerState.startZone;
+          ctx.save();
+          ctx.strokeStyle = '#2ecc71';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(sz.x, sz.y, sz.w, sz.h);
+          ctx.setLineDash([]);
+          // Platform line
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(sz.x - 5, sz.y + sz.h);
+          ctx.lineTo(sz.x + sz.w + 5, sz.y + sz.h);
+          ctx.stroke();
+          // Flag
+          ctx.fillStyle = '#2ecc71';
+          ctx.beginPath();
+          ctx.moveTo(sz.x + sz.w / 2, sz.y);
+          ctx.lineTo(sz.x + sz.w / 2 + 15, sz.y + 8);
+          ctx.lineTo(sz.x + sz.w / 2, sz.y + 16);
+          ctx.fill();
+          // Pole
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sz.x + sz.w / 2, sz.y);
+          ctx.lineTo(sz.x + sz.w / 2, sz.y + sz.h);
+          ctx.stroke();
+          // Label
+          ctx.fillStyle = '#2ecc71';
+          ctx.font = "bold 11px 'Velvelyne', serif";
+          ctx.textAlign = 'center';
+          ctx.fillText('start', sz.x + sz.w / 2, sz.y - 4);
+          ctx.restore();
+        }
+
+        // Draw finish zone in game mode
+        if (playerState.finishLine) {
+          const fl = playerState.finishLine;
+          ctx.save();
+          ctx.strokeStyle = '#e74c3c';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(fl.x, fl.y, fl.w, fl.h);
+          ctx.setLineDash([]);
+          // Platform line
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(fl.x - 5, fl.y + fl.h);
+          ctx.lineTo(fl.x + fl.w + 5, fl.y + fl.h);
+          ctx.stroke();
+          // Flag
+          ctx.fillStyle = '#e74c3c';
+          ctx.beginPath();
+          ctx.moveTo(fl.x + fl.w / 2, fl.y);
+          ctx.lineTo(fl.x + fl.w / 2 + 15, fl.y + 8);
+          ctx.lineTo(fl.x + fl.w / 2, fl.y + 16);
+          ctx.fill();
+          // Pole
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(fl.x + fl.w / 2, fl.y);
+          ctx.lineTo(fl.x + fl.w / 2, fl.y + fl.h);
+          ctx.stroke();
+          // Label
+          ctx.fillStyle = '#e74c3c';
+          ctx.font = "bold 11px 'Velvelyne', serif";
+          ctx.textAlign = 'center';
+          ctx.fillText('finish', fl.x + fl.w / 2, fl.y - 4);
           ctx.restore();
         }
       }
@@ -455,6 +545,20 @@ export default function Canvas() {
       const stampSize = 24 + state.brushSize * 5;
       dispatch({ type: 'ADD_STROKE', stroke: {
         type: 'stamp', stampIndex: state.selectedStamp, x, y, size: stampSize,
+      }});
+      return;
+    }
+
+    if (state.tool === 'start') {
+      dispatch({ type: 'ADD_STROKE', stroke: {
+        type: 'start', x, y, width: 50, height: 60,
+      }});
+      return;
+    }
+
+    if (state.tool === 'finish') {
+      dispatch({ type: 'ADD_STROKE', stroke: {
+        type: 'finish', x, y, width: 50, height: 60,
       }});
       return;
     }

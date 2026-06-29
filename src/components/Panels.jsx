@@ -476,7 +476,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
         <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>✎ tools</div>
         <div {...stylex.props(s.toolGrid)}>
-          {['brush', 'fill', 'erase', 'confetti', 'text', 'line', 'crayon', 'marker'].map(tool => (
+          {['brush', 'fill', 'erase', 'confetti', 'text', 'line', 'crayon', 'marker', 'start', 'finish'].map(tool => (
             <button
               key={tool}
               {...stylex.props(
@@ -582,6 +582,17 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
         >
           {state.liveMode ? '◉ live' : '○ live'}
         </button>
+        <button
+          {...stylex.props(
+            s.liveToggleBtn,
+            state.smearMode && s.liveToggleBtnActive,
+            darkMode && s.liveToggleBtnDark,
+            darkMode && state.smearMode && s.liveToggleBtnDarkActive,
+          )}
+          onClick={() => dispatch({ type: 'SET_SMEAR_MODE', value: !state.smearMode })}
+        >
+          {state.smearMode ? '◉ smear' : '○ smear'}
+        </button>
       </div>
     </div>
   );
@@ -662,6 +673,8 @@ function ToolIcon({ tool, darkMode, svgStyle }) {
     line: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>,
     crayon: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 2.5 L21.5 6.5 L8 20 L2 22 L4 16 Z"/><path d="M15 5 L19 9"/></svg>,
     marker: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.5 3.5 L20.5 8.5 L9 20 L4 21 L5 16 Z"/><path d="M15.5 3.5 L18 3 L21 6 L20.5 8.5"/><line x1="5" y1="16" x2="9" y2="20"/><line x1="8" y1="21" x2="11" y2="21" strokeDasharray="2 2"/></svg>,
+    start: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="4" x2="5" y2="20"/><path d="M5 4 L15 4 L15 12 L5 12" fill="#2ecc71" stroke="#2ecc71"/><line x1="3" y1="20" x2="18" y2="20"/></svg>,
+    finish: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="4" x2="5" y2="20"/><path d="M5 4 L15 4 L15 12 L5 12" fill="#e74c3c" stroke="#e74c3c"/><line x1="3" y1="20" x2="18" y2="20"/></svg>,
   };
   return icons[tool] || null;
 }
