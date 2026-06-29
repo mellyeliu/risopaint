@@ -392,37 +392,40 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
 
   const needsFullRedraw = !state.smearMode || !canvas._hasDrawn || strokes.length === 0;
 
-  if (state.liveMode) {
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(getGridPattern(w, h), 0, 0);
-    for (let i = 0; i < strokes.length; i++) {
-      drawStroke(ctx, strokes[i], state);
-    }
-    canvas._hasDrawn = true;
-  } else {
-    if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h) {
-      if (!strokeCache) {
-        strokeCache = document.createElement('canvas');
-      }
-      strokeCache.width = canvas.width;
-      strokeCache.height = canvas.height;
-      const cacheCtx = strokeCache.getContext('2d');
-      cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
-      for (let i = 0; i < strokes.length; i++) {
-        drawStroke(cacheCtx, strokes[i], state);
-      }
-      strokeCacheCount = strokes.length;
-      strokeCacheW = w;
-      strokeCacheH = h;
-    }
+  // Cache non-animated strokes (everything except crayon in live mode)
+  const hasCrayon = state.liveMode && strokes.some(s => s.type === 'crayon');
 
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(strokeCache, 0, 0);
-    ctx.restore();
-    canvas._hasDrawn = true;
+  if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h || (hasCrayon && !strokeCache._splitMode) || (!hasCrayon && strokeCache?._splitMode)) {
+    if (!strokeCache) {
+      strokeCache = document.createElement('canvas');
+    }
+    strokeCache.width = canvas.width;
+    strokeCache.height = canvas.height;
+    const cacheCtx = strokeCache.getContext('2d');
+    cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
+    for (let i = 0; i < strokes.length; i++) {
+      if (hasCrayon && strokes[i].type === 'crayon') continue;
+      drawStroke(cacheCtx, strokes[i], state);
+    }
+    strokeCacheCount = strokes.length;
+    strokeCacheW = w;
+    strokeCacheH = h;
+    strokeCache._splitMode = hasCrayon;
+  }
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(strokeCache, 0, 0);
+  ctx.restore();
+  canvas._hasDrawn = true;
+
+  // Draw animated crayon strokes fresh each frame
+  if (hasCrayon) {
+    for (let i = 0; i < strokes.length; i++) {
+      if (strokes[i].type === 'crayon') drawStroke(ctx, strokes[i], state);
+    }
   }
 
   if (currentStroke) drawStroke(ctx, currentStroke, state);
