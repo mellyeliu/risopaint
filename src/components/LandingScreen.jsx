@@ -23,8 +23,8 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower)
   const bounce = running ? Math.sin(time * 0.024) * 1 : 0;
   const armSwing = running ? legCycle * 0.5 : 0;
   const idleArm = running ? 0 : Math.sin(time * 0.0048) * 1;
-  const lc = dark ? '#ccc' : '#000'; // line color
-  const fc = dark ? '#333' : '#fff'; // fill color (for ties/shoes)
+  const lc = '#000'; // line color — always black
+  const fc = '#fff'; // fill color — always white
   ctx.save();
   ctx.translate(px, py - 4);
   ctx.scale(1.8 * facing, 1.8);
@@ -56,8 +56,10 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower)
     ctx.beginPath(); ctx.moveTo(-2.5,-13); ctx.lineTo(-1.5,-13); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(1.5,-13); ctx.lineTo(2.5,-13); ctx.stroke();
     ctx.lineWidth=1.6;
+    ctx.save(); ctx.scale(facing, 1);
     ctx.font="6px 'Velvelyne',serif"; ctx.fillText('z',6,-18+Math.sin(time*0.0004));
     ctx.font="8px 'Velvelyne',serif"; ctx.fillText('z',9,-22+Math.sin(time*0.0004+1));
+    ctx.restore();
   } else {
     const blink=Math.sin(time*0.002)>0.98;
     if(blink){ctx.lineWidth=1;
@@ -136,8 +138,8 @@ function drawDoor(ctx, x, groundY, dw, dh, label, color, locked, dark) {
 
   const wx = (n) => Math.sin(n * 3.7 + x * 0.1) * 0.8;
   const wy = (n) => Math.cos(n * 2.3 + x * 0.2) * 0.8;
-  const lineColor = dark ? '#ccc' : '#000';
-  const fillColor = locked ? (dark ? '#444' : '#e0e0e0') : (dark ? '#333' : '#d5d5d5');
+  const lineColor = '#000';
+  const fillColor = locked ? (dark ? '#555' : '#e0e0e0') : (dark ? '#666' : '#d5d5d5');
 
   // Fill — no bottom edge, just fill the interior
   ctx.fillStyle = fillColor;
@@ -177,7 +179,7 @@ function drawDoor(ctx, x, groundY, dw, dh, label, color, locked, dark) {
 // Wobbly box outline
 function drawWobblyRect(ctx, x, y, w, h, dark) {
   ctx.save();
-  ctx.strokeStyle = dark ? '#ccc' : '#000';
+  ctx.strokeStyle = '#000';
   ctx.lineWidth = 2.5;
   ctx.lineCap = 'round';
   // Top
@@ -208,6 +210,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
   const outerRef = useRef(null);
   const animRef = useRef(null);
   const [tool, setTool] = useState('marker');
+  const [size, setSize] = useState(0);
   const stRef = useRef({
     engine:null,runner:null,player:null,
     keys:{},jumpCount:0,wasJump:false,facing:1,
@@ -219,9 +222,21 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
   });
 
   useEffect(() => {
+    const onResize = () => setSize(s => s + 1);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
     const outer = outerRef.current;
     const canvas = canvasRef.current;
     if(!outer||!canvas) return;
+
+    const st = stRef.current;
+    st.strokes = [];
+    st.currentStroke = null;
+    st.strokeBodies = [];
+    st.drawing = false;
 
     const outerW = outer.clientWidth;
     const outerH = outer.clientHeight;
@@ -240,7 +255,6 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const st = stRef.current;
     const engine = Engine.create({ gravity: { x: 0, y: 1, scale: 0.001 } });
     st.engine = engine;
     const runner = Runner.create();
@@ -274,7 +288,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     const chapterSpacing = 55;
     const chaptersWidth = (chapterCount - 1) * chapterSpacing;
     const chaptersStartX = outerW / 2 - chaptersWidth / 2;
-    const ledgeY = groundY - 60;
+    const ledgeY = groundY - 70;
     for (let i = 0; i < chapterCount; i++) {
       chapterDoors.push({
         x: chaptersStartX + i * chapterSpacing,
@@ -307,7 +321,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     ];
 
     function drawDoodleIcons(ctx, activeTool, dark) {
-      const col = dark ? '#ccc' : '#000';
+      const col = '#000';
       ctx.save();
 
       // Tool toggle — single icon that shows current tool
@@ -367,7 +381,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         }
         ctx.stroke();
         // Cut-out circle to make crescent
-        ctx.fillStyle = darkMode ? '#1a1a1a' : '#fff';
+        ctx.fillStyle = '#fff';
         ctx.beginPath();
         for (let i = 0; i <= 16; i++) {
           const a = (i / 16) * Math.PI * 2;
@@ -499,7 +513,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       if (st.tool === 'eraser') {
         eraseAt(pos.x, pos.y);
       } else {
-        st.currentStroke = { points: [pos], color: darkMode ? '#ccc' : '#000' };
+        st.currentStroke = { points: [pos], color: '#000' };
       }
       e.preventDefault();
     };
@@ -659,11 +673,11 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       ctx.clearRect(0,0,outerW,outerH);
 
       // Grey background outside
-      ctx.fillStyle = darkMode ? '#202020' : '#d8d8d8';
+      ctx.fillStyle = darkMode ? '#444' : '#d8d8d8';
       ctx.fillRect(0, 0, outerW, outerH);
 
-      // Box fill
-      ctx.fillStyle = darkMode ? '#1a1a1a' : '#fff';
+      // Box fill — always white
+      ctx.fillStyle = '#fff';
       ctx.fillRect(boxX, boxY, boxW, boxH);
 
       // Grid inside box only
@@ -671,7 +685,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       ctx.beginPath();
       ctx.rect(boxX, boxY, boxW, boxH);
       ctx.clip();
-      ctx.strokeStyle = darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       for (let gx = boxX; gx <= boxX + boxW; gx += 12) { ctx.moveTo(gx, boxY); ctx.lineTo(gx, boxY + boxH); }
@@ -700,7 +714,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         // Measure to position flower separately
         const titleText = st.flowerCollected ? 'risopaint' : '❀ risopaint';
         const textW = ctx.measureText(titleText).width;
-        ctx.fillStyle = darkMode ? '#ddd' : '#222';
+        ctx.fillStyle = '#222';
         ctx.fillText(titleText, outerW / 2, boxY + 60);
         if (!st.flowerCollected) {
           // Flower position — left edge of the title text
@@ -708,17 +722,17 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
           flowerY = boxY + 55;
         }
         ctx.font = "11px 'Velvelyne', serif";
-        ctx.fillStyle = darkMode ? '#666' : '#aaa';
+        ctx.fillStyle = '#aaa';
         ctx.fillText('arrow keys to move · jump or space to enter', outerW / 2, boxY + 77);
         ctx.restore();
       } else {
         ctx.save();
-        ctx.fillStyle = darkMode ? '#ccc' : '#000';
+        ctx.fillStyle = '#000';
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
         ctx.fillText('𖦹 story mode', outerW / 2, boxY + 48);
         ctx.font = "11px 'Velvelyne', serif";
-        ctx.fillStyle = darkMode ? '#666' : '#aaa';
+        ctx.fillStyle = '#aaa';
         ctx.fillText('select a chapter · esc to go back', outerW / 2, boxY + 63);
         ctx.restore();
       }
@@ -732,7 +746,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       // Draw ledge line in chapter mode
       if (st.mode === 'chapters') {
         ctx.save();
-        ctx.strokeStyle = darkMode ? '#ccc' : '#000';
+        ctx.strokeStyle = '#000';
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         const ledgeLeft = outerW / 2 - ledgeWidth / 2;
@@ -776,7 +790,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       if (st.fadeAlpha > 0) {
         ctx.save();
         ctx.globalAlpha = st.fadeAlpha;
-        ctx.fillStyle = darkMode ? '#000' : '#fff';
+        ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, outerW, outerH);
         ctx.restore();
       }
@@ -799,7 +813,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       canvas.removeEventListener('touchend', onPointerUp);
       canvas.removeEventListener('click', onCanvasClick);
     };
-  }, [darkMode, onSelect]);
+  }, [darkMode, onSelect, size]);
 
   // Sync tool into ref so the frame loop / handlers can see it
   useEffect(() => { stRef.current.tool = tool; }, [tool]);

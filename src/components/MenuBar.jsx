@@ -73,7 +73,7 @@ const s = stylex.create({
       default: 16,
       [breakpoints.mobile]: 14,
     },
-    fontWeight: 700,
+    fontWeight: 400,
     color: '#000',
     padding: {
       default: '0 14px 0 10px',
@@ -271,6 +271,26 @@ export default function MenuBar({ onAction }) {
   const { state, dispatch } = useStore();
   const [openMenu, setOpenMenu] = useState(null);
   const darkMode = state.darkMode;
+  const clickTimer = useRef(null);
+
+  const handleLogoClick = () => {
+    if (clickTimer.current) return;
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null;
+      setOpenMenu(openMenu === 'home' ? null : 'home');
+    }, 250);
+  };
+
+  const handleLogoDblClick = () => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+    }
+    setOpenMenu(null);
+    sessionStorage.removeItem('risopaint-route');
+    history.pushState(null, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
   const handleAction = (action) => {
     setOpenMenu(null);
@@ -303,13 +323,30 @@ export default function MenuBar({ onAction }) {
 
       <span
         {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}
-        onClick={() => {
-          sessionStorage.removeItem('risopaint-route');
-          history.pushState(null, '', '/');
-          window.dispatchEvent(new PopStateEvent('popstate'));
-        }}
+        onClick={handleLogoClick}
+        onDoubleClick={handleLogoDblClick}
       >
         ❀ risopaint
+        {openMenu === 'home' && (
+          <Dropdown
+            items={[
+              { label: 'Home', action: 'nav-home' },
+              { label: 'Back to canvas', action: 'nav-canvas' },
+            ]}
+            darkMode={darkMode}
+            onAction={(action) => {
+              setOpenMenu(null);
+              if (action === 'nav-canvas') {
+                if (state.showGallery) dispatch({ type: 'SET_SHOW_GALLERY', value: false });
+              } else if (action === 'nav-home') {
+                sessionStorage.removeItem('risopaint-route');
+                history.pushState(null, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            }}
+            onClose={() => setOpenMenu(null)}
+          />
+        )}
       </span>
 
       {Object.keys(menuItems).map(menu => {
