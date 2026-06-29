@@ -466,10 +466,12 @@ export default function Canvas() {
             ctx.beginPath(); ctx.moveTo(1.5, -13); ctx.lineTo(2.5, -13); ctx.stroke();
             ctx.lineWidth = 1.6;
             // Zzz
+            ctx.save(); ctx.scale(facing, 1);
             ctx.font = "6px 'Velvelyne', serif";
             ctx.fillText('z', 6, -18 + Math.sin(time * 0.5) * 1);
             ctx.font = "8px 'Velvelyne', serif";
             ctx.fillText('z', 9, -22 + Math.sin(time * 0.5 + 1) * 1);
+            ctx.restore();
           } else {
             const blinkCycle = Math.sin(time * 0.25) > 0.98;
             if (blinkCycle) {
@@ -548,6 +550,32 @@ export default function Canvas() {
             ctx.fillStyle = 'gold';
             ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
             ctx.globalAlpha = 1;
+          }
+          // Flower accessory
+          if (sessionStorage.getItem('risopaint-flower')) {
+            const fx = 0, stemBase = -19, stemTop = -25;
+            ctx.strokeStyle = '#000';
+            ctx.fillStyle = '#fff';
+            ctx.lineWidth = 1.2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(fx, stemBase);
+            ctx.quadraticCurveTo(fx + 0.8, stemBase - 3, fx, stemTop + 2);
+            ctx.stroke();
+            ctx.lineWidth = 1.3;
+            for (let i = 0; i < 5; i++) {
+              const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+              const fpx = fx + Math.cos(a) * 2.2;
+              const fpy = stemTop + Math.sin(a) * 2.2;
+              ctx.beginPath();
+              ctx.arc(fpx, fpy, 1.3, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+            }
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(fx, stemTop, 0.9, 0, Math.PI * 2);
+            ctx.fill();
           }
           ctx.restore();
         }

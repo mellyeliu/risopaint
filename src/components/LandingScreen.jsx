@@ -215,7 +215,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     engine:null,runner:null,player:null,
     keys:{},jumpCount:0,wasJump:false,facing:1,
     lastActive:performance.now(),lastVy:0,
-    flowerCollected:false,
+    flowerCollected: !!sessionStorage.getItem('risopaint-flower'),
     selected:null,mode:'main',fadeAlpha:0,fadeDir:0,fadeCallback:null,
     strokes:[], currentStroke:null, drawing:false,
     strokeBodies:[], // physics bodies for drawn strokes
@@ -764,6 +764,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         const dy = Math.abs(player.position.y - flowerY);
         if (dx < 20 && dy < 20) {
           st.flowerCollected = true;
+          sessionStorage.setItem('risopaint-flower', '1');
         }
       }
 
