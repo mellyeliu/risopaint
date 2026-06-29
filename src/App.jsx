@@ -7,6 +7,7 @@ import Canvas from './components/Canvas.jsx';
 import BottomBar from './components/BottomBar.jsx';
 import Gallery, { SubmitPopup } from './components/Gallery.jsx';
 import StarfishBg from './components/StarfishBg.jsx';
+import LandingScreen from './components/LandingScreen.jsx';
 import { initGallery } from './lib/gallery.js';
 import { preloadStamps } from './lib/stamps.js';
 import { breakpoints, grain } from './tokens.stylex.js';
@@ -91,7 +92,12 @@ const s = stylex.create({
 });
 
 function useRoute() {
-  const getRoute = () => window.location.pathname === '/gallery' ? 'gallery' : 'canvas';
+  const getRoute = () => {
+    const path = window.location.pathname;
+    if (path === '/gallery') return 'gallery';
+    if (path === '/canvas' || path === '/editor') return 'canvas';
+    return 'landing';
+  };
   const [route, setRoute] = useState(getRoute);
 
   useEffect(() => {
@@ -101,9 +107,9 @@ function useRoute() {
   }, []);
 
   const navigate = useCallback((to) => {
-    const path = to === 'gallery' ? '/gallery' : '/';
-    history.pushState(null, '', path);
-    setRoute(to === 'gallery' ? 'gallery' : 'canvas');
+    const paths = { gallery: '/gallery', canvas: '/', landing: '/' };
+    history.pushState(null, '', paths[to] || '/');
+    setRoute(to);
   }, []);
 
   return [route, navigate];
@@ -143,8 +149,8 @@ function AppInner() {
 
   useEffect(() => {
     const app = document.getElementById('app');
-    if (app) app.style.padding = isFullbleed ? '0' : '14px';
-  }, [isFullbleed]);
+    if (app) app.style.padding = (isFullbleed || route === 'landing') ? '0' : '14px';
+  }, [isFullbleed, route]);
 
   const handleAction = (action) => {
     switch (action) {
@@ -162,6 +168,37 @@ function AppInner() {
         break;
     }
   };
+
+  const handleLandingSelect = useCallback((action) => {
+    if (action === 'freeform') {
+      navigate('canvas');
+    }
+    // chapter actions will be handled later
+  }, [navigate]);
+
+  // Landing screen
+  if (route === 'landing') {
+    return (
+      <>
+        {!isDark && <StarfishBg darkMode={false} />}
+        {isDark && <StarfishBg darkMode={true} />}
+        <div
+          {...stylex.props(s.editorFrame, isDark && s.dark, s.fullbleed)}
+          style={{ fontFamily: font.family, fontSize: `${13 + font.sizeBoost}px` }}
+        >
+          <LandingScreen
+            darkMode={isDark}
+            onSelect={handleLandingSelect}
+            onToggleDark={() => {
+              dispatch({ type: 'SET_DARK_MODE', value: !isDark });
+              document.body.style.background = !isDark ? '#202020' : '#d8d8d8';
+            }}
+          />
+          <div {...stylex.props(s.grainOverlay)} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

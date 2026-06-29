@@ -17,7 +17,7 @@ const initialState = {
   isDrawing: false,
   currentStroke: null,
   pixelation: 1,
-  darkMode: true,
+  darkMode: false,
   fullscreen: 1,
   zoom: 1,
   showGallery: false,

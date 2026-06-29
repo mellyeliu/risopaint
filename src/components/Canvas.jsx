@@ -288,29 +288,36 @@ export default function Canvas() {
         const legCycle = running ? Math.sin(time * 2) : 0;
 
         if (playerState.dead) {
-          // Dead sprite — lying sideways at ground level
+          // Dead sprite — same as alive but lying sideways with X eyes and blood
           ctx.save();
           ctx.translate(px, py + 12);
-          ctx.scale(1.5, 1.5);
+          ctx.scale(1.8, 1.8);
           ctx.rotate(Math.PI / 2);
           ctx.strokeStyle = '#000';
           ctx.fillStyle = '#000';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 1.6;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          // Braids
+          // Back braid strands
           ctx.beginPath();
-          ctx.moveTo(-5, -12); ctx.lineTo(-6, -9); ctx.lineTo(-4, -7);
+          ctx.moveTo(-5, -13);
+          ctx.quadraticCurveTo(-9, -10, -7, -7);
+          ctx.quadraticCurveTo(-3, -4, -9, -2);
           ctx.stroke();
-          ctx.beginPath(); ctx.arc(-4, -6.5, 1, 0, Math.PI * 2); ctx.fill();
           ctx.beginPath();
-          ctx.moveTo(5, -12); ctx.lineTo(6, -9); ctx.lineTo(4, -7);
+          ctx.moveTo(-5, -13);
+          ctx.quadraticCurveTo(-2, -10, -7, -7);
+          ctx.quadraticCurveTo(-10, -4, -5, -2);
           ctx.stroke();
-          ctx.beginPath(); ctx.arc(4, -6.5, 1, 0, Math.PI * 2); ctx.fill();
           // Head
-          ctx.beginPath();
-          ctx.arc(0, -14, 5, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, -14, 5, 0, Math.PI * 2); ctx.stroke();
+          // Tie circles with white center
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(-5, -14, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(5, -14, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.arc(-5, -14, 1.5, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(5, -14, 1.5, 0, Math.PI * 2); ctx.stroke();
           // Bangs
           ctx.lineWidth = 1.5;
           for (let bx = -3; bx <= 3; bx += 2) {
@@ -318,36 +325,59 @@ export default function Canvas() {
             ctx.beginPath(); ctx.moveTo(bx, topY); ctx.lineTo(bx, topY + 3); ctx.stroke();
           }
           // X eyes
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.moveTo(-3, -16); ctx.lineTo(-1, -14);
-          ctx.moveTo(-1, -16); ctx.lineTo(-3, -14);
+          ctx.moveTo(-2.8, -14.5); ctx.lineTo(-1.2, -12.5);
+          ctx.moveTo(-1.2, -14.5); ctx.lineTo(-2.8, -12.5);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(1, -16); ctx.lineTo(3, -14);
-          ctx.moveTo(3, -16); ctx.lineTo(1, -14);
+          ctx.moveTo(1.2, -14.5); ctx.lineTo(2.8, -12.5);
+          ctx.moveTo(2.8, -14.5); ctx.lineTo(1.2, -12.5);
           ctx.stroke();
           // Blood
           ctx.fillStyle = '#c0392b';
-          ctx.beginPath(); ctx.arc(1, -11, 1, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(1, -11); ctx.lineTo(2, -9); ctx.stroke();
-          // Body
-          ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 1); ctx.stroke();
-          // Limp arms
-          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(5, -2); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-5, -2); ctx.stroke();
-          // Skirt
+          ctx.beginPath(); ctx.arc(1, -11, 0.8, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(1, -11); ctx.lineTo(1.5, -9.5); ctx.stroke();
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 1.6;
+          // Front braid strands
           ctx.beginPath();
-          ctx.moveTo(-7, 6); ctx.lineTo(0, 0); ctx.lineTo(7, 6); ctx.lineTo(-7, 6);
+          ctx.moveTo(5, -13);
+          ctx.quadraticCurveTo(9, -10, 7, -7);
+          ctx.quadraticCurveTo(3, -4, 9, -2);
           ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(5, -13);
+          ctx.quadraticCurveTo(2, -10, 7, -7);
+          ctx.quadraticCurveTo(10, -4, 5, -2);
+          ctx.stroke();
+          // Body
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, -6); ctx.stroke();
+          // Limp arms
+          ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(5, -1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-5, -1); ctx.stroke();
+          // Dress
+          ctx.beginPath();
+          ctx.moveTo(0, -6);
+          ctx.quadraticCurveTo(-2, 0, -6, 6);
+          ctx.lineTo(6, 6);
+          ctx.quadraticCurveTo(2, 0, 0, -6);
+          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(6, 6); ctx.stroke();
           // Legs
-          ctx.beginPath(); ctx.moveTo(-2, 6); ctx.lineTo(-3, 12); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(3, 12); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(-2, 14); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(1, 6); ctx.lineTo(2, 14); ctx.stroke();
           // Shoes
-          ctx.beginPath(); ctx.ellipse(-3, 13, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.ellipse(3, 13, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.ellipse(-2 - 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.ellipse(-2 - 1.5, 14.5, 1, 0.5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.ellipse(2 + 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.ellipse(2 + 1.5, 14.5, 1, 0.5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
           ctx.restore();
         } else {
           // Alive sprite
@@ -391,12 +421,13 @@ export default function Canvas() {
           ctx.beginPath();
           ctx.moveTo(-5, -13);
           ctx.quadraticCurveTo(-9, -10 + bounce, -7, -7 + bounce);
-          ctx.quadraticCurveTo(-5, -4 + bounce, -9, -2 + bounce);
+          ctx.quadraticCurveTo(-3, -4 + bounce, -9, -2 + bounce);
           ctx.stroke();
+          // Strand 2 — wider cross
           ctx.beginPath();
           ctx.moveTo(-5, -13);
-          ctx.quadraticCurveTo(-3, -10 + bounce, -7, -7 + bounce);
-          ctx.quadraticCurveTo(-9, -4 + bounce, -5, -2 + bounce);
+          ctx.quadraticCurveTo(-2, -10 + bounce, -7, -7 + bounce);
+          ctx.quadraticCurveTo(-10, -4 + bounce, -5, -2 + bounce);
           ctx.stroke();
 
           // Back arm
@@ -419,8 +450,8 @@ export default function Canvas() {
           if (sleeping) {
             // Sleeping — closed eyes with Zs
             ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(-3, -13); ctx.lineTo(-1, -13); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(1, -13); ctx.lineTo(3, -13); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-2.5, -13); ctx.lineTo(-1.5, -13); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(1.5, -13); ctx.lineTo(2.5, -13); ctx.stroke();
             ctx.lineWidth = 1.6;
             // Zzz
             ctx.font = "6px 'Velvelyne', serif";
@@ -453,12 +484,13 @@ export default function Canvas() {
           ctx.beginPath();
           ctx.moveTo(5, -13);
           ctx.quadraticCurveTo(9, -10 + bounce, 7, -7 + bounce);
-          ctx.quadraticCurveTo(5, -4 + bounce, 9, -2 + bounce);
+          ctx.quadraticCurveTo(3, -4 + bounce, 9, -2 + bounce);
           ctx.stroke();
+          // Strand 2 — wider cross
           ctx.beginPath();
           ctx.moveTo(5, -13);
-          ctx.quadraticCurveTo(3, -10 + bounce, 7, -7 + bounce);
-          ctx.quadraticCurveTo(9, -4 + bounce, 5, -2 + bounce);
+          ctx.quadraticCurveTo(2, -10 + bounce, 7, -7 + bounce);
+          ctx.quadraticCurveTo(10, -4 + bounce, 5, -2 + bounce);
           ctx.stroke();
 
           // Body — wobbly line, stops at dress top
@@ -480,7 +512,7 @@ export default function Canvas() {
           ctx.fillStyle = '#000';
           ctx.beginPath(); ctx.ellipse(backLegX - 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.ellipse(backLegX - 1.5, 14.5, 1.5, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(backLegX - 1.5, 14.5, 1, 0.5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#000';
           // Front leg + shoe
           const frontLegX = 2 - legCycle * 3;
@@ -488,7 +520,7 @@ export default function Canvas() {
           ctx.fillStyle = '#000';
           ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 1.5, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 1, 0.5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#000';
           // Invincibility glow
           if (playerState.invincible) {

@@ -474,7 +474,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
   return (
     <div {...stylex.props(s.leftPanel, darkMode && s.leftPanelDark)}>
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>✎ tools</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>ꕥ tools</div>
         <div {...stylex.props(s.toolGrid)}>
           {['brush', 'fill', 'erase', 'confetti', 'text', 'line', 'crayon', 'marker', 'start', 'finish'].map(tool => (
             <button
@@ -495,7 +495,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       </div>
 
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>❐ colors</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>ꕤ colors</div>
         <div {...stylex.props(s.colorGrid)}>
           {colors.map(c => (
             <div

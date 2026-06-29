@@ -305,6 +305,7 @@ export default function MenuBar({ onAction }) {
         {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}
         onClick={() => {
           if (state.showGallery) dispatch({ type: 'SET_SHOW_GALLERY', value: false });
+          else { history.pushState(null, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }
         }}
       >
         ❀ risopaint
