@@ -392,29 +392,38 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
 
   const needsFullRedraw = !state.smearMode || !canvas._hasDrawn || strokes.length === 0;
 
-  if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h) {
-    if (!strokeCache) {
-      strokeCache = document.createElement('canvas');
-    }
-    strokeCache.width = canvas.width;
-    strokeCache.height = canvas.height;
-    const cacheCtx = strokeCache.getContext('2d');
-    cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
+  if (state.liveMode) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(getGridPattern(w, h), 0, 0);
     for (let i = 0; i < strokes.length; i++) {
-      drawStroke(cacheCtx, strokes[i], state);
+      drawStroke(ctx, strokes[i], state);
     }
-    strokeCacheCount = strokes.length;
-    strokeCacheW = w;
-    strokeCacheH = h;
-  }
+    canvas._hasDrawn = true;
+  } else {
+    if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h) {
+      if (!strokeCache) {
+        strokeCache = document.createElement('canvas');
+      }
+      strokeCache.width = canvas.width;
+      strokeCache.height = canvas.height;
+      const cacheCtx = strokeCache.getContext('2d');
+      cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
+      for (let i = 0; i < strokes.length; i++) {
+        drawStroke(cacheCtx, strokes[i], state);
+      }
+      strokeCacheCount = strokes.length;
+      strokeCacheW = w;
+      strokeCacheH = h;
+    }
 
-  ctx.clearRect(0, 0, w, h);
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(strokeCache, 0, 0);
-  ctx.restore();
-  canvas._hasDrawn = true;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(strokeCache, 0, 0);
+    ctx.restore();
+    canvas._hasDrawn = true;
+  }
 
   if (currentStroke) drawStroke(ctx, currentStroke, state);
 
