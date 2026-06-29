@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { useStore, GRID_SIZE } from '../state/store.jsx';
-import { redrawCanvas, interpolateCells, drawStroke } from '../lib/tools.js';
+import { redrawCanvas, interpolateCells, drawStroke, getGridPattern } from '../lib/tools.js';
 import { PhysicsEngine } from '../lib/physics.js';
 import { stamps, getStampImage } from '../lib/stamps.js';
 import { getDitheredStamp } from '../lib/dither.js';
@@ -191,26 +191,34 @@ export default function Canvas() {
     const w = physCanvas.width / window.devicePixelRatio;
     const h = physCanvas.height / window.devicePixelRatio;
 
+    // Pre-render static strokes (crayon/marker) to offscreen canvas
+    let staticStrokesCanvas = null;
+    const staticStrokes = currentScene.strokes.filter(s => s.type === 'crayon' || s.type === 'marker');
+    if (staticStrokes.length > 0) {
+      staticStrokesCanvas = document.createElement('canvas');
+      staticStrokesCanvas.width = physCanvas.width;
+      staticStrokesCanvas.height = physCanvas.height;
+      const sCtx = staticStrokesCanvas.getContext('2d');
+      sCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      for (const stroke of staticStrokes) {
+        drawStroke(sCtx, stroke, state);
+      }
+    }
+
     function frame() {
       ctx.clearRect(0, 0, w, h);
 
-      // Draw white background + grid
+      // Draw white background + cached grid
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, w, h);
-      ctx.save();
-      ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      for (let gx = 0; gx <= w; gx += GRID_SIZE) { ctx.moveTo(gx, 0); ctx.lineTo(gx, h); }
-      for (let gy = 0; gy <= h; gy += GRID_SIZE) { ctx.moveTo(0, gy); ctx.lineTo(w, gy); }
-      ctx.stroke();
-      ctx.restore();
+      ctx.drawImage(getGridPattern(w, h), 0, 0);
 
-      // Draw crayon/marker strokes at original positions (they're static in game)
-      for (const stroke of currentScene.strokes) {
-        if (stroke.type === 'crayon' || stroke.type === 'marker') {
-          drawStroke(ctx, stroke, state);
-        }
+      // Draw cached static strokes
+      if (staticStrokesCanvas) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(staticStrokesCanvas, 0, 0);
+        ctx.restore();
       }
 
       const bodies = physics.getState();

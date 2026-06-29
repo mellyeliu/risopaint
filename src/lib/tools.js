@@ -349,7 +349,7 @@ let gridCache = null;
 let gridCacheW = 0;
 let gridCacheH = 0;
 
-function getGridPattern(w, h) {
+export function getGridPattern(w, h) {
   if (gridCache && gridCacheW === w && gridCacheH === h) return gridCache;
   const offscreen = document.createElement('canvas');
   offscreen.width = w;

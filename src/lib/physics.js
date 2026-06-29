@@ -358,7 +358,7 @@ export class PhysicsEngine {
         const dy = this.player.position.y - b.body.position.y;
         const stroke = this.bodyToStroke.get(b.body);
         const hitDist = ((stroke?.size || 40) / 2) + 10;
-        if (Math.sqrt(dx * dx + dy * dy) < hitDist) {
+        if (dx * dx + dy * dy < hitDist * hitDist) {
           this.playerDead = true;
           this.deathTime = now;
           return;
@@ -373,7 +373,7 @@ export class PhysicsEngine {
         const dy = this.player.position.y - l.body.position.y;
         const stroke = this.bodyToStroke.get(l.body);
         const hitDist = ((stroke?.size || 40) / 2) + 5;
-        if (Math.sqrt(dx * dx + dy * dy) < hitDist) {
+        if (dx * dx + dy * dy < hitDist * hitDist) {
           this.playerDead = true;
           this.deathTime = now;
           return;
@@ -387,7 +387,7 @@ export class PhysicsEngine {
         if (s.collected) continue;
         const dx = this.player.position.x - s.body.position.x;
         const dy = this.player.position.y - s.body.position.y;
-        if (Math.sqrt(dx * dx + dy * dy) < 25) {
+        if (dx * dx + dy * dy < 625) {
           s.collected = true;
           if (s.isBow) {
             this.maxJumps = 2; // extra jump

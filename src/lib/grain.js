@@ -1,19 +1,44 @@
-export function applyGrain(ctx, w, h, amount = 25) {
-  const pw = Math.floor(w * window.devicePixelRatio);
-  const ph = Math.floor(h * window.devicePixelRatio);
-  if (pw <= 0 || ph <= 0) return;
-  const imageData = ctx.getImageData(0, 0, pw, ph);
-  const pixels = new Uint32Array(imageData.data.buffer);
-  const len = pixels.length;
-  for (let i = 0; i < len; i++) {
-    const px = pixels[i];
-    const a = (px >>> 24) & 0xff;
-    if (a === 0) continue;
-    const offset = Math.floor(Math.random() * (amount * 2 + 1)) - amount;
-    const r = Math.max(0, Math.min(255, (px & 0xff) + offset));
-    const g = Math.max(0, Math.min(255, ((px >> 8) & 0xff) + offset));
-    const b = Math.max(0, Math.min(255, ((px >> 16) & 0xff) + offset));
-    pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
+const GRAIN_FRAMES = 4;
+const GRAIN_TILE = 256;
+let grainCanvases = null;
+let grainFrame = 0;
+
+function initGrainFrames() {
+  if (grainCanvases) return;
+  grainCanvases = [];
+  for (let f = 0; f < GRAIN_FRAMES; f++) {
+    const c = document.createElement('canvas');
+    c.width = GRAIN_TILE;
+    c.height = GRAIN_TILE;
+    const ctx = c.getContext('2d');
+    const imageData = ctx.createImageData(GRAIN_TILE, GRAIN_TILE);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const v = Math.floor(Math.random() * 50);
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    grainCanvases.push(c);
   }
-  ctx.putImageData(imageData, 0, 0);
+}
+
+export function applyGrain(ctx, w, h, amount = 25) {
+  const pw = Math.floor(w);
+  const ph = Math.floor(h);
+  if (pw <= 0 || ph <= 0) return;
+
+  initGrainFrames();
+  const tile = grainCanvases[grainFrame % GRAIN_FRAMES];
+  grainFrame++;
+
+  ctx.save();
+  ctx.globalAlpha = amount / 100;
+  ctx.globalCompositeOperation = 'overlay';
+  const pat = ctx.createPattern(tile, 'repeat');
+  ctx.fillStyle = pat;
+  ctx.fillRect(0, 0, pw, ph);
+  ctx.restore();
 }
