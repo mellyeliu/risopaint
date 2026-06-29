@@ -544,12 +544,13 @@ export default function Canvas() {
           ctx.fillStyle = '#fff';
           ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 1, 0.5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#000';
-          // Invincibility glow
+          // Invincibility halo
           if (playerState.invincible) {
-            ctx.globalAlpha = 0.15;
-            ctx.fillStyle = 'gold';
-            ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 1;
+            ctx.strokeStyle = 'gold';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(0, -21, 6, 2, 0, 0, Math.PI * 2);
+            ctx.stroke();
           }
           // Flower accessory
           if (sessionStorage.getItem('risopaint-flower')) {

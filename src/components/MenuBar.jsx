@@ -73,7 +73,7 @@ const s = stylex.create({
       default: 16,
       [breakpoints.mobile]: 14,
     },
-    fontWeight: 400,
+    fontWeight: 700,
     color: '#000',
     padding: {
       default: '0 14px 0 10px',
@@ -218,6 +218,7 @@ const s = stylex.create({
     zIndex: 30,
     minWidth: 160,
     padding: '2px 0',
+    fontWeight: 400,
   },
   dropdownDark: {
     background: '#2a2a2a',

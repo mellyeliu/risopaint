@@ -269,6 +269,25 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     const rightWall = Bodies.rectangle(boxX + boxW - 8, boxY + boxH / 2, 6, boxH, { isStatic: true });
     Composite.add(engine.world, [floor, leftWall, rightWall]);
 
+    const grounds = new Set([floor.id]);
+
+    Matter.Events.on(engine, 'collisionStart', (e) => {
+      for (const pair of e.pairs) {
+        if ((pair.bodyA === player && grounds.has(pair.bodyB.id)) ||
+            (pair.bodyB === player && grounds.has(pair.bodyA.id))) {
+          st.jumpCount = 0;
+        }
+      }
+    });
+    Matter.Events.on(engine, 'collisionActive', (e) => {
+      for (const pair of e.pairs) {
+        if ((pair.bodyA === player && grounds.has(pair.bodyB.id)) ||
+            (pair.bodyB === player && grounds.has(pair.bodyA.id))) {
+          st.jumpCount = 0;
+        }
+      }
+    });
+
     // Player
     const player = Bodies.rectangle(outerW / 2, groundY - 30, 15, 36, {
       restitution: 0.1, friction: 0.8, density: 0.05,
@@ -310,6 +329,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     // Ledge platform for chapter select
     const ledgeWidth = chaptersWidth + 70;
     const chapterLedge = Bodies.rectangle(outerW / 2, ledgeY, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
+    grounds.add(chapterLedge.id);
 
     // Tool toggle + dark mode — bottom right inside box
     const iconY = boxY + boxH - 18;
@@ -474,6 +494,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
           isStatic: true, friction: 0.8, angle,
         });
         bodies.push(body);
+        grounds.add(body.id);
         Composite.add(engine.world, body);
       }
       st.strokeBodies.push({ stroke, bodies });
@@ -599,8 +620,6 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       if(keys.ArrowDown||keys.s) Body.setVelocity(player,{x:player.velocity.x,y:Math.max(player.velocity.y,8)});
 
       const vy=player.velocity.y;
-      const onGround=Math.abs(vy)<0.5&&st.lastVy>=0;
-      if(onGround) st.jumpCount=0;
       st.lastVy=vy;
 
       // Check door proximity before jump — entering a door skips the jump
@@ -711,16 +730,31 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.save();
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
-        // Measure to position flower separately
-        const titleText = st.flowerCollected ? 'risopaint' : '❀ risopaint';
-        const textW = ctx.measureText(titleText).width;
         ctx.fillStyle = '#222';
-        ctx.fillText(titleText, outerW / 2, boxY + 60);
-        if (!st.flowerCollected) {
-          // Flower position — left edge of the title text
-          flowerX = outerW / 2 - textW / 2 + 8;
-          flowerY = boxY + 55;
+        const fullTitle = '❀ risopaint';
+        const fullW = ctx.measureText(fullTitle).width;
+        const flowerCharW = ctx.measureText('❀ ').width;
+        // Flower position for collectible detection
+        flowerX = outerW / 2 - fullW / 2 + flowerCharW / 2;
+        flowerY = boxY + 55;
+        if (st.flowerCollected) {
+          // Draw "risopaint" part centered
+          ctx.fillText(fullTitle, outerW / 2, boxY + 60);
+          // Overdraw the flower with rotation
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(flowerX - flowerCharW / 2 - 2, boxY + 40, flowerCharW + 2, 25);
+          ctx.fillStyle = '#222';
+          ctx.save();
+          ctx.translate(flowerX, boxY + 52);
+          ctx.rotate(now * 0.002);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('❀', 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(fullTitle, outerW / 2, boxY + 60);
         }
+        ctx.textAlign = 'center';
         ctx.font = "11px 'Velvelyne', serif";
         ctx.fillStyle = '#aaa';
         ctx.fillText('arrow keys to move · jump or space to enter', outerW / 2, boxY + 77);

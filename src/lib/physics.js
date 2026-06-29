@@ -390,7 +390,7 @@ export class PhysicsEngine {
         if (Math.sqrt(dx * dx + dy * dy) < 25) {
           s.collected = true;
           if (s.isBow) {
-            this.maxJumps = 3; // extra jump
+            this.maxJumps = 2; // extra jump
           } else {
             this.invincibleUntil = now + 30000; // 30 seconds
           }
@@ -424,7 +424,7 @@ export class PhysicsEngine {
         const mx = m.body.position.x, my = m.body.position.y;
         const stroke = this.bodyToStroke.get(m.body);
         const sw = (stroke?.size || 40);
-        const halfW = sw / 2 + 10;
+        const halfW = sw / 2 + 20;
         const topY = my - sw / 2;
         const dist = topY - py;
         if (Math.abs(px - mx) < halfW && dist > -5 && dist < 18) {
