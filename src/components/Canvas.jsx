@@ -552,8 +552,9 @@ export default function Canvas() {
             ctx.ellipse(0, -21, 6, 2, 0, 0, Math.PI * 2);
             ctx.stroke();
           }
-          // Flower accessory
-          if (sessionStorage.getItem('risopaint-flower')) {
+          // Accessories
+          const gameAccessory = sessionStorage.getItem('risopaint-accessory');
+          if (gameAccessory === 'flower') {
             const fx = 0, stemBase = -19, stemTop = -25;
             ctx.strokeStyle = '#000';
             ctx.fillStyle = '#fff';
@@ -577,6 +578,26 @@ export default function Canvas() {
             ctx.beginPath();
             ctx.arc(fx, stemTop, 0.9, 0, Math.PI * 2);
             ctx.fill();
+          } else if (gameAccessory === 'spiral') {
+            const fx = 0, stemBase = -19, stemTop = -26;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(fx, stemBase);
+            ctx.quadraticCurveTo(fx - 0.5, stemBase - 3, fx, stemTop + 3);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i <= 24; i++) {
+              const a = (i / 24) * Math.PI * 4;
+              const r = 0.5 + i * 0.12;
+              const spx = fx + Math.cos(a) * r;
+              const spy = stemTop + Math.sin(a) * r;
+              if (i === 0) ctx.moveTo(spx, spy);
+              else ctx.lineTo(spx, spy);
+            }
+            ctx.stroke();
           }
           ctx.restore();
         }

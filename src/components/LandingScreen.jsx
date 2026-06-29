@@ -7,6 +7,8 @@ const { Engine, Bodies, Body, Composite, Runner } = Matter;
 const s = stylex.create({
   outer: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -14,11 +16,16 @@ const s = stylex.create({
     overflow: 'hidden',
   },
   canvas: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
     display: 'block',
   },
 });
 
-function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower) {
+function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, accessory) {
   const legCycle = running ? Math.sin(time * 0.016) : 0;
   const bounce = running ? Math.sin(time * 0.024) * 1 : 0;
   const armSwing = running ? legCycle * 0.5 : 0;
@@ -99,7 +106,7 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower)
   ctx.beginPath();ctx.ellipse(fL+1.5,14.5,2.8,1.4,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=fc;ctx.beginPath();ctx.ellipse(fL+1.5,14.5,1,0.5,0,0,Math.PI*2);ctx.fill();
   // Flower accessory — doodled flower on a stem from top of head
-  if (hasFlower) {
+  if (accessory === 'flower') {
     const fx = 0, stemBase = -19, stemTop = -25;
     ctx.strokeStyle = lc;
     ctx.fillStyle = fc;
@@ -126,6 +133,30 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower)
     ctx.beginPath();
     ctx.arc(fx, stemTop, 0.9, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // Spiral accessory — 𖦹 on a stem from top of head
+  if (accessory === 'spiral') {
+    const fx = 0, stemBase = -19, stemTop = -26;
+    ctx.strokeStyle = lc;
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    // Stem
+    ctx.beginPath();
+    ctx.moveTo(fx, stemBase);
+    ctx.quadraticCurveTo(fx - 0.5, stemBase - 3, fx, stemTop + 3);
+    ctx.stroke();
+    // Spiral
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 4;
+      const r = 0.5 + i * 0.12;
+      const sx = fx + Math.cos(a) * r;
+      const sy = stemTop + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -216,6 +247,8 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     keys:{},jumpCount:0,wasJump:false,facing:1,
     lastActive:performance.now(),lastVy:0,
     flowerCollected: !!sessionStorage.getItem('risopaint-flower'),
+    spiralCollected: !!sessionStorage.getItem('risopaint-spiral'),
+    accessory: sessionStorage.getItem('risopaint-accessory') || null,
     selected:null,mode:'main',fadeAlpha:0,fadeDir:0,fadeCallback:null,
     strokes:[], currentStroke:null, drawing:false,
     strokeBodies:[], // physics bodies for drawn strokes
@@ -250,8 +283,6 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
 
     canvas.width = outerW * dpr;
     canvas.height = outerH * dpr;
-    canvas.style.width = outerW + 'px';
-    canvas.style.height = outerH + 'px';
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
@@ -307,7 +338,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     const chapterSpacing = 55;
     const chaptersWidth = (chapterCount - 1) * chapterSpacing;
     const chaptersStartX = outerW / 2 - chaptersWidth / 2;
-    const ledgeY = groundY - 70;
+    const ledgeY = groundY - 55;
     for (let i = 0; i < chapterCount; i++) {
       chapterDoors.push({
         x: chaptersStartX + i * chapterSpacing,
@@ -335,9 +366,11 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     const iconY = boxY + boxH - 18;
     const darkX = boxX + boxW - 18;
     const toolX = darkX - 30;
+    const accX = toolX - 30;
     const icons = [
       { id: 'darkToggle', x: darkX, y: iconY },
       { id: 'toolToggle', x: toolX, y: iconY },
+      { id: 'accToggle', x: accX, y: iconY },
     ];
 
     function drawDoodleIcons(ctx, activeTool, dark) {
@@ -450,6 +483,58 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         }
       }
 
+      // Accessory toggle — only show if at least one collectible found
+      const hasAny = st.flowerCollected || st.spiralCollected;
+      if (hasAny) {
+        const ax = accX, ay = iconY;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const acc = st.accessory;
+        if (acc === 'flower') {
+          // Mini flower — wobbly with hollow center
+          ctx.fillStyle = '#fff';
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            const wobble = Math.sin(i * 1.7) * 0.6;
+            const fpx = ax + Math.cos(a) * (5 + wobble);
+            const fpy = ay + Math.sin(a) * (5 + wobble);
+            const pr = 2.8 + Math.sin(i * 2.3) * 0.4;
+            ctx.beginPath(); ctx.arc(fpx, fpy, pr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          }
+          // Hollow center
+          ctx.beginPath(); ctx.arc(ax, ay, 2, 0, Math.PI * 2); ctx.stroke();
+        } else if (acc === 'spiral') {
+          // Mini spiral — bigger
+          ctx.beginPath();
+          for (let i = 0; i <= 24; i++) {
+            const a = (i / 24) * Math.PI * 4;
+            const r = 1 + i * 0.25;
+            const spx = ax + Math.cos(a) * r;
+            const spy = ay + Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(spx, spy);
+            else ctx.lineTo(spx, spy);
+          }
+          ctx.stroke();
+        } else {
+          // No accessory — doodled t-shirt
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(ax - 5, ay - 4.5);
+          ctx.quadraticCurveTo(ax - 7.5, ay - 1.5, ax - 7, ay - 0.5);
+          ctx.quadraticCurveTo(ax - 5.5, ay + 0.5, ax - 4, ay + 0.5);
+          ctx.quadraticCurveTo(ax - 4.5, ay + 3, ax - 4.5, ay + 6);
+          ctx.quadraticCurveTo(ax - 1, ay + 7.5, ax + 4.5, ay + 6);
+          ctx.quadraticCurveTo(ax + 4.5, ay + 3, ax + 4, ay + 0.5);
+          ctx.quadraticCurveTo(ax + 5.5, ay + 0.5, ax + 7, ay - 0.5);
+          ctx.quadraticCurveTo(ax + 7.5, ay - 1.5, ax + 5, ay - 4.5);
+          ctx.quadraticCurveTo(ax + 3.5, ay - 2.5, ax, ay - 2);
+          ctx.quadraticCurveTo(ax - 3.5, ay - 2.5, ax - 5, ay - 4.5);
+          ctx.stroke();
+        }
+      }
+
       ctx.restore();
     }
 
@@ -469,6 +554,18 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         const newTool = st.tool === 'marker' ? 'eraser' : 'marker';
         st.tool = newTool;
         if (window._landingSetTool) window._landingSetTool(newTool);
+        e.stopPropagation();
+        return;
+      }
+      // Accessory toggle
+      if ((st.flowerCollected || st.spiralCollected) && Math.abs(cx - accX) < 14 && Math.abs(cy - iconY) < 14) {
+        const collected = [];
+        if (st.flowerCollected) collected.push('flower');
+        if (st.spiralCollected) collected.push('spiral');
+        collected.push(null); // no accessory option
+        const idx = collected.indexOf(st.accessory);
+        st.accessory = collected[(idx + 1) % collected.length];
+        sessionStorage.setItem('risopaint-accessory', st.accessory || '');
         e.stopPropagation();
         return;
       }
@@ -528,6 +625,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       // Skip if clicking on a doodled icon area
       if (Math.abs(pos.x - darkX) < 14 && Math.abs(pos.y - iconY) < 14) return;
       if (Math.abs(pos.x - toolX) < 14 && Math.abs(pos.y - iconY) < 14) return;
+      if (Math.abs(pos.x - accX) < 14 && Math.abs(pos.y - iconY) < 14) return;
       // Only draw inside the box
       if (pos.x < boxX || pos.x > boxX + boxW || pos.y < boxY || pos.y > boxY + boxH) return;
       st.drawing = true;
@@ -631,7 +729,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
           const doorGround = door.y || groundY;
           const dx=Math.abs(player.position.x-door.x);
           const dy=doorGround-player.position.y;
-          if(dx<doorW/2+8&&dy>10&&dy<doorH+20&&(keys.ArrowUp||keys.w||keys[' '])){
+          if(dx<doorW/2+8&&dy>10&&dy<doorH+20&&st.jumpCount===0&&(keys.ArrowUp||keys.w||keys[' '])){
             enteringDoor = true;
             st.selected=door.action;
             st.fadeDir = 1;
@@ -726,6 +824,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
 
       // Title inside box — only on main menu
       let flowerX, flowerY;
+      let spiralX, spiralY;
       if (st.mode === 'main') {
         ctx.save();
         ctx.font = "bold 22px 'Velvelyne', serif";
@@ -764,7 +863,26 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.fillStyle = '#000';
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
-        ctx.fillText('𖦹 story mode', outerW / 2, boxY + 48);
+        const storyTitle = '𖦹 story mode';
+        const storyW = ctx.measureText(storyTitle).width;
+        const spiralCharW = ctx.measureText('𖦹 ').width;
+        spiralX = outerW / 2 - storyW / 2 + spiralCharW / 2;
+        spiralY = boxY + 43;
+        if (st.spiralCollected) {
+          ctx.fillText(storyTitle, outerW / 2, boxY + 48);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(spiralX - spiralCharW / 2 - 2, boxY + 28, spiralCharW + 2, 25);
+          ctx.fillStyle = '#000';
+          ctx.save();
+          ctx.translate(spiralX, boxY + 40);
+          ctx.rotate(now * 0.002);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('𖦹', 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(storyTitle, outerW / 2, boxY + 48);
+        }
         ctx.font = "11px 'Velvelyne', serif";
         ctx.fillStyle = '#aaa';
         ctx.fillText('select a chapter · esc to go back', outerW / 2, boxY + 63);
@@ -799,12 +917,24 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         if (dx < 20 && dy < 20) {
           st.flowerCollected = true;
           sessionStorage.setItem('risopaint-flower', '1');
+          if (!st.accessory) { st.accessory = 'flower'; sessionStorage.setItem('risopaint-accessory', 'flower'); }
+        }
+      }
+
+      // Spiral collection (story mode title)
+      if (spiralX && !st.spiralCollected) {
+        const dx = Math.abs(player.position.x - spiralX);
+        const dy = Math.abs(player.position.y - spiralY);
+        if (dx < 20 && dy < 20) {
+          st.spiralCollected = true;
+          sessionStorage.setItem('risopaint-spiral', '1');
+          if (!st.accessory) { st.accessory = 'spiral'; sessionStorage.setItem('risopaint-accessory', 'spiral'); }
         }
       }
 
       // Girl
       const running = Math.abs(player.velocity.x) > 0.5;
-      drawGirl(ctx, player.position.x, player.position.y, st.facing, running, now, sleeping, darkMode, st.flowerCollected);
+      drawGirl(ctx, player.position.x, player.position.y, st.facing, running, now, sleeping, darkMode, st.accessory);
 
       // Doodled tool icons
       drawDoodleIcons(ctx, st.tool, darkMode);
