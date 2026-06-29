@@ -247,6 +247,14 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         locked: true,
       });
     }
+    // Back door on the ground floor
+    chapterDoors.push({
+      x: boxX + 40,
+      label: '← back',
+      color: '#666',
+      action: 'back',
+      locked: false,
+    });
     // Ledge platform for chapter select
     const ledgeWidth = chaptersWidth + 70;
     const chapterLedge = Bodies.rectangle(outerW / 2, ledgeY, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
@@ -277,13 +285,9 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       if(onGround) st.jumpCount=0;
       st.lastVy=vy;
 
-      const jp=keys.ArrowUp||keys.w;
-      if(jp&&!st.wasJump&&st.jumpCount<2){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
-      else{Body.setVelocity(player,{x:vx,y:player.velocity.y});}
-      st.wasJump=jp;
-
-      // Door entry
+      // Check door proximity before jump — entering a door skips the jump
       const doors = st.mode === 'main' ? mainDoors : chapterDoors;
+      let enteringDoor = false;
       if(!st.selected){
         for(const door of doors){
           if(door.locked) continue;
@@ -291,8 +295,8 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
           const dx=Math.abs(player.position.x-door.x);
           const dy=doorGround-player.position.y;
           if(dx<doorW/2+8&&dy>10&&dy<doorH+20&&(keys.ArrowUp||keys.w||keys[' '])){
+            enteringDoor = true;
             st.selected=door.action;
-            // Start fade out
             st.fadeDir = 1;
             st.fadeAlpha = 0;
             st.fadeCallback = () => {
@@ -301,19 +305,29 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
                 Composite.add(engine.world, chapterLedge);
                 Body.setPosition(player,{x:boxX+40,y:groundY-30});
                 Body.setVelocity(player,{x:0,y:0});
+              }else if(door.action==='back'){
+                st.mode='main';st.selected=null;
+                Composite.remove(engine.world, chapterLedge);
+                Body.setPosition(player,{x:outerW/2,y:groundY-30});
+                Body.setVelocity(player,{x:0,y:0});
               }else if(door.action==='freeform'){
                 onSelect('freeform');
-                return; // don't fade back in
+                return;
               }else if(door.action.startsWith('chapter-')){
                 onSelect(door.action);
                 return;
               }
-              // Fade back in
               st.fadeDir = -1;
             };
+            break;
           }
         }
       }
+
+      const jp=keys.ArrowUp||keys.w;
+      if(jp&&!st.wasJump&&st.jumpCount<2&&!enteringDoor){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
+      else{Body.setVelocity(player,{x:vx,y:player.velocity.y});}
+      st.wasJump=jp;
 
       // Esc to go back
       if(st.mode==='chapters'&&(keys.Escape||keys.Backspace)&&!st.fadeDir){
@@ -362,20 +376,20 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.fillStyle = darkMode ? '#ddd' : '#222';
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
-        ctx.fillText('❀ risopaint', outerW / 2, boxY + 45);
+        ctx.fillText('❀ risopaint', outerW / 2, boxY + 60);
         ctx.font = "11px 'Velvelyne', serif";
         ctx.fillStyle = darkMode ? '#666' : '#aaa';
-        ctx.fillText('arrow keys to move · jump or space to enter', outerW / 2, boxY + 62);
+        ctx.fillText('arrow keys to move · jump or space to enter', outerW / 2, boxY + 77);
         ctx.restore();
       } else {
         ctx.save();
         ctx.fillStyle = darkMode ? '#ccc' : '#000';
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
-        ctx.fillText('𖦹 story mode', outerW / 2, boxY + 33);
+        ctx.fillText('𖦹 story mode', outerW / 2, boxY + 48);
         ctx.font = "11px 'Velvelyne', serif";
         ctx.fillStyle = darkMode ? '#666' : '#aaa';
-        ctx.fillText('select a chapter · esc to go back', outerW / 2, boxY + 48);
+        ctx.fillText('select a chapter · esc to go back', outerW / 2, boxY + 63);
         ctx.restore();
       }
 

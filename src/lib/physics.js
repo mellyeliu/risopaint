@@ -515,6 +515,7 @@ export class PhysicsEngine {
       const px = this.player.position.x, py = this.player.position.y;
       if (px > fl.x && px < fl.x + fl.w && py > fl.y && py < fl.y + fl.h) {
         this.playerWon = true;
+        Body.setVelocity(this.player, { x: 0, y: 0 });
       }
     }
 
