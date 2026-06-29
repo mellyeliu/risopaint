@@ -301,8 +301,8 @@ export function drawStroke(ctx, stroke, state) {
     ctx.restore();
   } else if (stroke.type === 'start' || stroke.type === 'finish') {
     ctx.save();
-    const fw = stroke.width || 50;
-    const fh = stroke.height || 60;
+    const fw = stroke.width || 80;
+    const fh = stroke.height || 90;
     const fx = stroke.x - fw / 2;
     const fy = stroke.y - fh;
     const color = stroke.type === 'start' ? '#2ecc71' : '#e74c3c';
@@ -320,19 +320,20 @@ export function drawStroke(ctx, stroke, state) {
     ctx.moveTo(fx - 5, stroke.y);
     ctx.lineTo(fx + fw + 5, stroke.y);
     ctx.stroke();
-    // Flag
+    // Flag — centered
+    const flagX = fx + fw / 2;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(fx + fw / 2, fy);
-    ctx.lineTo(fx + fw / 2 + 15, fy + 8);
-    ctx.lineTo(fx + fw / 2, fy + 16);
+    ctx.moveTo(flagX, fy);
+    ctx.lineTo(flagX + 15, fy + 8);
+    ctx.lineTo(flagX, fy + 16);
     ctx.fill();
     // Pole
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(fx + fw / 2, fy);
-    ctx.lineTo(fx + fw / 2, fy + fh);
+    ctx.moveTo(flagX, fy);
+    ctx.lineTo(flagX, fy + fh);
     ctx.stroke();
     // Label
     ctx.fillStyle = color;

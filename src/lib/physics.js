@@ -178,19 +178,27 @@ export class PhysicsEngine {
         this.blackHoles.push({ body, cx, cy, radius, strength: 0.4 });
         Composite.add(this.engine.world, body);
       } else if (stroke.type === 'marker' && stroke.points && stroke.points.length > 1) {
-        // Marker — static platform (no conveyor behavior)
+        // Marker — chain of thin segment bodies following the actual line
         const pts = stroke.points;
-        const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-        const bw = Math.max(maxX - minX, 10);
-        const bh = Math.max(maxY - minY, 10);
-        const bcx = (minX + maxX) / 2;
-        const bcy = (minY + maxY) / 2;
-        const body = Bodies.rectangle(bcx, bcy, bw, Math.max(bh, stroke.size || 8), { isStatic: true, friction: 0.8 });
-        this.bodyToStroke.set(body, stroke);
-        this.bodies.push(body);
-        Composite.add(this.engine.world, body);
+        const thickness = Math.max(stroke.size || 8, 6);
+        const step = Math.max(1, Math.floor(pts.length / 30));
+        for (let i = 0; i < pts.length - step; i += step) {
+          const p1 = pts[i];
+          const p2 = pts[Math.min(i + step, pts.length - 1)];
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 2) continue;
+          const angle = Math.atan2(dy, dx);
+          const cx = (p1.x + p2.x) / 2;
+          const cy = (p1.y + p2.y) / 2;
+          const body = Bodies.rectangle(cx, cy, len, thickness, {
+            isStatic: true, friction: 0.8, angle,
+          });
+          this.bodyToStroke.set(body, stroke);
+          this.bodies.push(body);
+          Composite.add(this.engine.world, body);
+        }
       } else if (stroke.type === 'start') {
         const fw = stroke.width || 50, fh = stroke.height || 60;
         const platform = Bodies.rectangle(stroke.x, stroke.y, fw, 6, { isStatic: true, friction: 0.8 });
@@ -410,16 +418,17 @@ export class PhysicsEngine {
     }
 
     // Check mushroom trampoline
-    if (this.mushrooms && this.player.velocity.y > 0.5) {
+    if (this.mushrooms) {
       for (const m of this.mushrooms) {
         const px = this.player.position.x, py = this.player.position.y;
         const mx = m.body.position.x, my = m.body.position.y;
         const stroke = this.bodyToStroke.get(m.body);
         const sw = (stroke?.size || 40);
         const halfW = sw / 2 + 10;
-        const dy = my - py;
-        if (Math.abs(px - mx) < halfW && dy > 0 && dy < 30) {
-          Body.setVelocity(this.player, { x: this.player.velocity.x, y: -18 });
+        const topY = my - sw / 2;
+        const dist = topY - py;
+        if (Math.abs(px - mx) < halfW && dist > -5 && dist < 18) {
+          Body.setVelocity(this.player, { x: this.player.velocity.x, y: -9 });
           this.jumpCount = 0;
         }
       }
