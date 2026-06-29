@@ -435,7 +435,19 @@ export default function Canvas() {
           const idleArm = running ? 0 : Math.sin(time * 0.6) * 1;
           wobbleLine(0, -6, -5, -1 - armSwing * 3 + idleArm);
 
-          // Head — wobbly circle
+          // Head — wobbly circle with white fill
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          for (let i = 0; i <= 20; i++) {
+            const a = (i / 20) * Math.PI * 2;
+            const wr = 5 * (1 + Math.sin(a * 5 + 0 * 0.3) * 0.06);
+            const wx = 0 + Math.cos(a) * wr;
+            const wy = -14 + Math.sin(a) * wr;
+            if (i === 0) ctx.moveTo(wx, wy);
+            else ctx.lineTo(wx, wy);
+          }
+          ctx.fill();
+          ctx.fillStyle = '#000';
           wobbleCircle(0, -14, 5, 20);
 
           // Pigtail tie circles — drawn after head so white center is visible on both sides
@@ -497,7 +509,15 @@ export default function Canvas() {
           wobbleLine(0, -9, 0, -6);
           // Front arm
           wobbleLine(0, -6, 5, -1 + armSwing * 3 - idleArm);
-          // Skirt — curved triangle, narrower at top, slightly less wide
+          // Skirt — curved triangle with white fill
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.moveTo(0, -6);
+          ctx.quadraticCurveTo(-2, 0, -6, 6);
+          ctx.lineTo(6, 6);
+          ctx.quadraticCurveTo(2, 0, 0, -6);
+          ctx.fill();
+          ctx.fillStyle = '#000';
           ctx.beginPath();
           ctx.moveTo(0, -6);
           ctx.quadraticCurveTo(-2, 0, -6, 6);

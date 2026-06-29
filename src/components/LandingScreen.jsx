@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import Matter from 'matter-js';
 
@@ -18,7 +18,7 @@ const s = stylex.create({
   },
 });
 
-function drawGirl(ctx, px, py, facing, running, time, sleeping, dark) {
+function drawGirl(ctx, px, py, facing, running, time, sleeping, dark, hasFlower) {
   const legCycle = running ? Math.sin(time * 0.016) : 0;
   const bounce = running ? Math.sin(time * 0.024) * 1 : 0;
   const armSwing = running ? legCycle * 0.5 : 0;
@@ -40,6 +40,8 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark) {
   // Back arm
   ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(-5,-1-armSwing*3+idleArm); ctx.stroke();
   // Head
+  ctx.fillStyle = fc;
+  ctx.beginPath(); ctx.arc(0,-14,5,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(0,-14,5,0,Math.PI*2); ctx.stroke();
   // Ties
   ctx.fillStyle=fc;
@@ -81,6 +83,9 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark) {
   // Body+dress
   ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(0,-6);ctx.stroke();
   ctx.beginPath();ctx.moveTo(0,-6);ctx.lineTo(5,-1+armSwing*3-idleArm);ctx.stroke();
+  ctx.fillStyle=fc;
+  ctx.beginPath();ctx.moveTo(0,-6);ctx.quadraticCurveTo(-2,0,-6,6);
+  ctx.lineTo(6,6);ctx.quadraticCurveTo(2,0,0,-6);ctx.fill();
   ctx.beginPath();ctx.moveTo(0,-6);ctx.quadraticCurveTo(-2,0,-6,6);
   ctx.lineTo(6,6);ctx.quadraticCurveTo(2,0,0,-6);ctx.stroke();
   ctx.beginPath();ctx.moveTo(-6,6);ctx.lineTo(6,6);ctx.stroke();
@@ -91,6 +96,35 @@ function drawGirl(ctx, px, py, facing, running, time, sleeping, dark) {
   ctx.fillStyle=lc;ctx.beginPath();ctx.moveTo(1,6);ctx.lineTo(fL,14);ctx.stroke();
   ctx.beginPath();ctx.ellipse(fL+1.5,14.5,2.8,1.4,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=fc;ctx.beginPath();ctx.ellipse(fL+1.5,14.5,1,0.5,0,0,Math.PI*2);ctx.fill();
+  // Flower accessory — doodled flower on a stem from top of head
+  if (hasFlower) {
+    const fx = 0, stemBase = -19, stemTop = -25;
+    ctx.strokeStyle = lc;
+    ctx.fillStyle = fc;
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    // Stem
+    ctx.beginPath();
+    ctx.moveTo(fx, stemBase);
+    ctx.quadraticCurveTo(fx + 0.8, stemBase - 3, fx, stemTop + 2);
+    ctx.stroke();
+    // Petals
+    ctx.lineWidth = 1.3;
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+      const px = fx + Math.cos(a) * 2.2;
+      const py = stemTop + Math.sin(a) * 2.2;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Center dot
+    ctx.fillStyle = lc;
+    ctx.beginPath();
+    ctx.arc(fx, stemTop, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -173,11 +207,15 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
   const canvasRef = useRef(null);
   const outerRef = useRef(null);
   const animRef = useRef(null);
+  const [tool, setTool] = useState('marker');
   const stRef = useRef({
     engine:null,runner:null,player:null,
     keys:{},jumpCount:0,wasJump:false,facing:1,
     lastActive:performance.now(),lastVy:0,
+    flowerCollected:false,
     selected:null,mode:'main',fadeAlpha:0,fadeDir:0,fadeCallback:null,
+    strokes:[], currentStroke:null, drawing:false,
+    strokeBodies:[], // physics bodies for drawn strokes
   });
 
   useEffect(() => {
@@ -258,12 +296,278 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     // Ledge platform for chapter select
     const ledgeWidth = chaptersWidth + 70;
     const chapterLedge = Bodies.rectangle(outerW / 2, ledgeY, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
-    // Don't add yet — only when in chapter mode
+
+    // Tool toggle + dark mode — bottom right inside box
+    const iconY = boxY + boxH - 18;
+    const darkX = boxX + boxW - 18;
+    const toolX = darkX - 30;
+    const icons = [
+      { id: 'darkToggle', x: darkX, y: iconY },
+      { id: 'toolToggle', x: toolX, y: iconY },
+    ];
+
+    function drawDoodleIcons(ctx, activeTool, dark) {
+      const col = dark ? '#ccc' : '#000';
+      ctx.save();
+
+      // Tool toggle — single icon that shows current tool
+      ctx.font = "bold 16px 'Velvelyne', serif";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = col;
+      if (activeTool === 'eraser') {
+        // Doodled eraser
+        ctx.strokeStyle = col;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.8;
+        const ex = toolX, ey = iconY;
+        ctx.beginPath();
+        ctx.moveTo(ex - 6, ey + 4);
+        ctx.quadraticCurveTo(ex - 7, ey + 3, ex - 3, ey - 5);
+        ctx.lineTo(ex + 4, ey - 5);
+        ctx.quadraticCurveTo(ex + 7, ey - 4, ex + 6, ey + 4);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ex, ey + 4);
+        ctx.lineTo(ex + 1, ey - 5);
+        ctx.stroke();
+      } else {
+        // Hand-doodled squiggle (mimics ᝰ looping wave)
+        ctx.strokeStyle = col;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.8;
+        const px = toolX, py = iconY;
+        ctx.beginPath();
+        ctx.moveTo(px - 8, py + 1);
+        ctx.bezierCurveTo(px - 6, py - 9, px - 1, py - 9, px - 2, py);
+        ctx.bezierCurveTo(px - 3, py + 7, px + 1, py + 8, px + 2, py + 1);
+        ctx.bezierCurveTo(px + 3, py - 5, px + 6, py - 5, px + 5, py);
+        ctx.bezierCurveTo(px + 4, py + 4, px + 7, py + 3, px + 9, py - 1);
+        ctx.stroke();
+      }
+
+      // Dark mode toggle — doodled sun or doodled moon
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
+      const sx = darkX, sy = iconY;
+      if (dark) {
+        // Hand-doodled crescent moon
+        ctx.beginPath();
+        for (let i = 0; i <= 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const r = 5 + Math.sin(a * 3 + 0.8) * 0.4;
+          const px = sx + Math.cos(a) * r;
+          const py = sy + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        // Cut-out circle to make crescent
+        ctx.fillStyle = darkMode ? '#1a1a1a' : '#fff';
+        ctx.beginPath();
+        for (let i = 0; i <= 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const r = 4.5 + Math.sin(a * 3 + 2.1) * 0.3;
+          const px = sx + 3 + Math.cos(a) * r;
+          const py = sy - 1 + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.fill();
+        // Inner crescent outline
+        ctx.strokeStyle = col;
+        ctx.beginPath();
+        for (let i = 0; i <= 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const r = 4.5 + Math.sin(a * 3 + 2.1) * 0.3;
+          const px = sx + 3 + Math.cos(a) * r;
+          const py = sy - 1 + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      } else {
+        // Hand-doodled sun
+        ctx.beginPath();
+        for (let i = 0; i <= 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          const r = 3.5 + Math.sin(a * 3 + 1.2) * 0.4;
+          const px = sx + Math.cos(a) * r;
+          const py = sy + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        // Rays
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + 0.2;
+          const wobble = Math.sin(i * 2.7) * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(sx + Math.cos(a) * 5, sy + Math.sin(a) * 5);
+          ctx.quadraticCurveTo(
+            sx + Math.cos(a) * 6.5 + wobble, sy + Math.sin(a) * 6.5 + wobble,
+            sx + Math.cos(a) * 8, sy + Math.sin(a) * 8
+          );
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    // Click handler for doodled icons
+    const onCanvasClick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      // Dark toggle
+      if (Math.abs(cx - darkX) < 14 && Math.abs(cy - iconY) < 14) {
+        onToggleDark();
+        e.stopPropagation();
+        return;
+      }
+      // Tool toggle
+      if (Math.abs(cx - toolX) < 14 && Math.abs(cy - iconY) < 14) {
+        const newTool = st.tool === 'marker' ? 'eraser' : 'marker';
+        st.tool = newTool;
+        if (window._landingSetTool) window._landingSetTool(newTool);
+        e.stopPropagation();
+        return;
+      }
+    };
+    canvas.addEventListener('click', onCanvasClick);
+    function addStrokeBodies(stroke) {
+      const pts = stroke.points;
+      if (pts.length < 2) return;
+      const thickness = 6;
+      const step = Math.max(1, Math.floor(pts.length / 30));
+      const bodies = [];
+      for (let i = 0; i < pts.length - step; i += step) {
+        const p1 = pts[i];
+        const p2 = pts[Math.min(i + step, pts.length - 1)];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 2) continue;
+        const angle = Math.atan2(dy, dx);
+        const cx = (p1.x + p2.x) / 2;
+        const cy = (p1.y + p2.y) / 2;
+        const body = Bodies.rectangle(cx, cy, len, thickness, {
+          isStatic: true, friction: 0.8, angle,
+        });
+        bodies.push(body);
+        Composite.add(engine.world, body);
+      }
+      st.strokeBodies.push({ stroke, bodies });
+    }
+
+    function eraseAt(x, y) {
+      const eraseR = 15;
+      const toRemove = [];
+      st.strokeBodies = st.strokeBodies.filter(sb => {
+        const hit = sb.stroke.points.some(p =>
+          Math.abs(p.x - x) < eraseR && Math.abs(p.y - y) < eraseR
+        );
+        if (hit) {
+          sb.bodies.forEach(b => Composite.remove(engine.world, b));
+          toRemove.push(sb.stroke);
+        }
+        return !hit;
+      });
+      st.strokes = st.strokes.filter(s => !toRemove.includes(s));
+    }
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+    };
+
+    const onPointerDown = (e) => {
+      if (e.button && e.button !== 0) return;
+      const pos = getPos(e);
+      // Skip if clicking on a doodled icon area
+      if (Math.abs(pos.x - darkX) < 14 && Math.abs(pos.y - iconY) < 14) return;
+      if (Math.abs(pos.x - toolX) < 14 && Math.abs(pos.y - iconY) < 14) return;
+      // Only draw inside the box
+      if (pos.x < boxX || pos.x > boxX + boxW || pos.y < boxY || pos.y > boxY + boxH) return;
+      st.drawing = true;
+      if (st.tool === 'eraser') {
+        eraseAt(pos.x, pos.y);
+      } else {
+        st.currentStroke = { points: [pos], color: darkMode ? '#ccc' : '#000' };
+      }
+      e.preventDefault();
+    };
+
+    const onPointerMove = (e) => {
+      if (!st.drawing) return;
+      const pos = getPos(e);
+      if (st.tool === 'eraser') {
+        eraseAt(pos.x, pos.y);
+      } else if (st.currentStroke) {
+        st.currentStroke.points.push(pos);
+      }
+      e.preventDefault();
+    };
+
+    const onPointerUp = (e) => {
+      if (!st.drawing) return;
+      st.drawing = false;
+      if (st.currentStroke && st.currentStroke.points.length > 1) {
+        st.strokes.push(st.currentStroke);
+        addStrokeBodies(st.currentStroke);
+      }
+      st.currentStroke = null;
+    };
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    canvas.addEventListener('mouseup', onPointerUp);
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+    canvas.addEventListener('touchend', onPointerUp);
 
     const onKeyDown = (e) => { st.keys[e.key] = true; };
     const onKeyUp = (e) => { st.keys[e.key] = false; };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+
+    function drawStroke(stroke) {
+      const pts = stroke.points;
+      if (pts.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = stroke.color;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 2.5;
+      for (let pass = 0; pass < 2; pass++) {
+        ctx.beginPath();
+        ctx.moveTo(
+          pts[0].x + Math.sin(pass * 4.1) * 0.3,
+          pts[0].y + Math.cos(pass * 3.7) * 0.3
+        );
+        for (let i = 1; i < pts.length; i++) {
+          const prev = pts[i - 1];
+          const p = pts[i];
+          const wobble = Math.sin(i * 3.7 + pass * 2.1) * 0.4;
+          const mx = (prev.x + p.x) / 2 + wobble;
+          const my = (prev.y + p.y) / 2 + Math.cos(i * 2.3 + pass * 1.3) * 0.3;
+          ctx.quadraticCurveTo(
+            prev.x + Math.sin(i * 5.3 + pass) * 0.2,
+            prev.y + Math.cos(i * 4.1 + pass) * 0.2,
+            mx, my
+          );
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     function frame() {
       const now = performance.now();
@@ -273,7 +577,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
 
       // Movement
       const speed = 5;
-      const jumpVel = -6;
+      const jumpVel = -9;
       let vx = player.velocity.x;
       if(keys.ArrowLeft||keys.a){vx=-speed;st.facing=-1;}
       else if(keys.ArrowRight||keys.d){vx=speed;st.facing=1;}
@@ -302,11 +606,19 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
             st.fadeCallback = () => {
               if(door.action==='story'){
                 st.mode='chapters';st.selected=null;
+                // Clear drawn strokes and their physics bodies
+                st.strokeBodies.forEach(sb => sb.bodies.forEach(b => Composite.remove(engine.world, b)));
+                st.strokeBodies = [];
+                st.strokes = [];
                 Composite.add(engine.world, chapterLedge);
                 Body.setPosition(player,{x:boxX+40,y:groundY-30});
                 Body.setVelocity(player,{x:0,y:0});
               }else if(door.action==='back'){
                 st.mode='main';st.selected=null;
+                // Clear drawn strokes and their physics bodies
+                st.strokeBodies.forEach(sb => sb.bodies.forEach(b => Composite.remove(engine.world, b)));
+                st.strokeBodies = [];
+                st.strokes = [];
                 Composite.remove(engine.world, chapterLedge);
                 Body.setPosition(player,{x:outerW/2,y:groundY-30});
                 Body.setVelocity(player,{x:0,y:0});
@@ -325,7 +637,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       }
 
       const jp=keys.ArrowUp||keys.w;
-      if(jp&&!st.wasJump&&st.jumpCount<2&&!enteringDoor){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
+      if(jp&&!st.wasJump&&st.jumpCount<1&&!enteringDoor){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
       else{Body.setVelocity(player,{x:vx,y:player.velocity.y});}
       st.wasJump=jp;
 
@@ -367,16 +679,34 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       ctx.stroke();
       ctx.restore();
 
+      // Draw strokes (clipped to box)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(boxX, boxY, boxW, boxH);
+      ctx.clip();
+      for (const stroke of st.strokes) drawStroke(stroke);
+      if (st.currentStroke) drawStroke(st.currentStroke);
+      ctx.restore();
+
       // Wobbly outline
       drawWobblyRect(ctx, boxX, boxY, boxW, boxH, darkMode);
 
       // Title inside box — only on main menu
+      let flowerX, flowerY;
       if (st.mode === 'main') {
         ctx.save();
-        ctx.fillStyle = darkMode ? '#ddd' : '#222';
         ctx.font = "bold 22px 'Velvelyne', serif";
         ctx.textAlign = 'center';
-        ctx.fillText('❀ risopaint', outerW / 2, boxY + 60);
+        // Measure to position flower separately
+        const titleText = st.flowerCollected ? 'risopaint' : '❀ risopaint';
+        const textW = ctx.measureText(titleText).width;
+        ctx.fillStyle = darkMode ? '#ddd' : '#222';
+        ctx.fillText(titleText, outerW / 2, boxY + 60);
+        if (!st.flowerCollected) {
+          // Flower position — left edge of the title text
+          flowerX = outerW / 2 - textW / 2 + 8;
+          flowerY = boxY + 55;
+        }
         ctx.font = "11px 'Velvelyne', serif";
         ctx.fillStyle = darkMode ? '#666' : '#aaa';
         ctx.fillText('arrow keys to move · jump or space to enter', outerW / 2, boxY + 77);
@@ -392,8 +722,6 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.fillText('select a chapter · esc to go back', outerW / 2, boxY + 63);
         ctx.restore();
       }
-
-      // No separate ground line — doors sit on the box bottom edge
 
       // Doors
       for (const door of doors) {
@@ -416,9 +744,21 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.restore();
       }
 
+      // Flower collection
+      if (flowerX && !st.flowerCollected) {
+        const dx = Math.abs(player.position.x - flowerX);
+        const dy = Math.abs(player.position.y - flowerY);
+        if (dx < 20 && dy < 20) {
+          st.flowerCollected = true;
+        }
+      }
+
       // Girl
       const running = Math.abs(player.velocity.x) > 0.5;
-      drawGirl(ctx, player.position.x, player.position.y, st.facing, running, now, sleeping, darkMode);
+      drawGirl(ctx, player.position.x, player.position.y, st.facing, running, now, sleeping, darkMode, st.flowerCollected);
+
+      // Doodled tool icons
+      drawDoodleIcons(ctx, st.tool, darkMode);
 
       // Fade transition overlay
       if (st.fadeDir !== 0) {
@@ -451,33 +791,27 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       Runner.stop(runner);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      canvas.removeEventListener('mousedown', onPointerDown);
+      canvas.removeEventListener('mousemove', onPointerMove);
+      canvas.removeEventListener('mouseup', onPointerUp);
+      canvas.removeEventListener('touchstart', onPointerDown);
+      canvas.removeEventListener('touchmove', onPointerMove);
+      canvas.removeEventListener('touchend', onPointerUp);
+      canvas.removeEventListener('click', onCanvasClick);
     };
   }, [darkMode, onSelect]);
+
+  // Sync tool into ref so the frame loop / handlers can see it
+  useEffect(() => { stRef.current.tool = tool; }, [tool]);
+  // Allow canvas click handler to update React state
+  useEffect(() => {
+    window._landingSetTool = setTool;
+    return () => { delete window._landingSetTool; };
+  }, []);
 
   return (
     <div ref={outerRef} {...stylex.props(s.outer)}>
       <canvas ref={canvasRef} {...stylex.props(s.canvas)} />
-      <div
-        onClick={onToggleDark}
-        style={{
-          position: 'absolute', bottom: 16, right: 16,
-          width: 40, height: 20, borderRadius: 10,
-          backgroundColor: darkMode ? '#555' : '#bbb',
-          cursor: 'pointer', display: 'flex', alignItems: 'center',
-          padding: 2, transition: 'background-color 0.2s',
-        }}
-      >
-        <div style={{
-          width: 16, height: 16, borderRadius: 8,
-          backgroundColor: darkMode ? '#222' : '#fff',
-          marginLeft: darkMode ? 20 : 0,
-          transition: 'margin-left 0.2s, background-color 0.2s',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, color: darkMode ? '#ccc' : '#333',
-        }}>
-          {darkMode ? '☾' : '☀'}
-        </div>
-      </div>
     </div>
   );
 }

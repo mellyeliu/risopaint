@@ -130,4 +130,9 @@ input[type="range"]::-moz-range-thumb {
 
 /* ── Utility ── */
 
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 .hidden { display: none !important; }

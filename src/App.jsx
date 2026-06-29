@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { StoreProvider, useStore } from './state/store.jsx';
 import MenuBar from './components/MenuBar.jsx';
@@ -123,6 +123,17 @@ function AppInner() {
   const { state, dispatch } = useStore();
   const [submitOpen, setSubmitOpen] = useState(false);
   const [route, navigate] = useRoute();
+  const [fadeIn, setFadeIn] = useState(false);
+  const prevRouteRef = useRef(route);
+
+  useEffect(() => {
+    if (prevRouteRef.current === 'landing' && route !== 'landing') {
+      setFadeIn(true);
+      const t = setTimeout(() => setFadeIn(false), 800);
+      return () => clearTimeout(t);
+    }
+    prevRouteRef.current = route;
+  }, [route]);
 
   const showGallery = route === 'gallery';
 
@@ -237,6 +248,15 @@ function AppInner() {
 
         {/* Grain overlay — replaces ::after pseudo-element */}
         <div {...stylex.props(s.grainOverlay)} />
+
+        {fadeIn && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 200,
+            backgroundColor: isDark ? '#000' : '#fff',
+            animation: 'fadeOut 0.8s ease-out forwards',
+            pointerEvents: 'none',
+          }} />
+        )}
       </div>
     </>
   );
