@@ -96,6 +96,8 @@ function useRoute() {
     const path = window.location.pathname;
     if (path === '/gallery') return 'gallery';
     if (path === '/canvas' || path === '/editor') return 'canvas';
+    const saved = sessionStorage.getItem('risopaint-route');
+    if (saved === 'canvas' || saved === 'gallery') return saved;
     return 'landing';
   };
   const [route, setRoute] = useState(getRoute);
@@ -107,8 +109,10 @@ function useRoute() {
   }, []);
 
   const navigate = useCallback((to) => {
-    const paths = { gallery: '/gallery', canvas: '/', landing: '/' };
+    const paths = { gallery: '/gallery', canvas: '/canvas', landing: '/' };
     history.pushState(null, '', paths[to] || '/');
+    if (to !== 'landing') sessionStorage.setItem('risopaint-route', to);
+    else sessionStorage.removeItem('risopaint-route');
     setRoute(to);
   }, []);
 

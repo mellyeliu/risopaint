@@ -270,26 +270,34 @@ export function drawStroke(ctx, stroke, state) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const size = Math.max(stroke.size, 2);
-    ctx.lineWidth = size * 0.8;
-    const dashGap = size * 0.6;
-    const time = state?.liveMode ? performance.now() * 0.008 : 0;
-    ctx.setLineDash([1, dashGap]);
-    ctx.lineDashOffset = -time;
+    ctx.lineWidth = size * 0.6;
 
-    ctx.beginPath();
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    for (let i = 1; i < stroke.points.length; i++) {
-      const prev = stroke.points[i - 1];
-      const p = stroke.points[i];
-      const mx = (prev.x + p.x) / 2;
-      const my = (prev.y + p.y) / 2;
-      ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
+    // Draw multiple wobbly passes for a doodled pen look
+    const passes = 2;
+    for (let pass = 0; pass < passes; pass++) {
+      ctx.beginPath();
+      const pts = stroke.points;
+      ctx.moveTo(
+        pts[0].x + Math.sin(pass * 4.1) * 0.3,
+        pts[0].y + Math.cos(pass * 3.7) * 0.3
+      );
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1];
+        const p = pts[i];
+        const wobble = Math.sin(i * 3.7 + pass * 2.1) * (size * 0.06);
+        const mx = (prev.x + p.x) / 2 + wobble;
+        const my = (prev.y + p.y) / 2 + Math.cos(i * 2.3 + pass * 1.3) * (size * 0.05);
+        ctx.quadraticCurveTo(
+          prev.x + Math.sin(i * 5.3 + pass) * 0.2,
+          prev.y + Math.cos(i * 4.1 + pass) * 0.2,
+          mx, my
+        );
+      }
+      const last = pts[pts.length - 1];
+      ctx.lineTo(last.x, last.y);
+      ctx.stroke();
     }
-    const last = stroke.points[stroke.points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.stroke();
 
-    ctx.setLineDash([]);
     ctx.restore();
   } else if (stroke.type === 'start' || stroke.type === 'finish') {
     ctx.save();

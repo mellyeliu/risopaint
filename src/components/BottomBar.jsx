@@ -179,7 +179,7 @@ export default function BottomBar({ onAction }) {
           )}
           onClick={() => dispatch({ type: 'SET_PHYSICS', value: !state.physicsOn })}
         >
-          [{state.physicsOn ? 'ᝰ draw' : '꩜ play'}]
+          [{state.physicsOn ? 'ᝰ draw' : '✩ play'}]
         </button>
         <button
           {...stylex.props(s.actionBtn, darkMode && s.actionBtnDark)}

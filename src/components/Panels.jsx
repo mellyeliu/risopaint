@@ -476,7 +476,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
         <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>ꕥ tools</div>
         <div {...stylex.props(s.toolGrid)}>
-          {['brush', 'fill', 'erase', 'confetti', 'text', 'line', 'crayon', 'marker', 'start', 'finish'].map(tool => (
+          {['brush', 'marker', 'erase', 'fill', 'text', 'line', 'crayon', 'confetti', 'start', 'finish'].map(tool => (
             <button
               key={tool}
               {...stylex.props(
@@ -670,7 +670,7 @@ function ToolIcon({ tool, darkMode, svgStyle }) {
     confetti: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>,
     text: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
     line: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>,
-    crayon: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 2.5 L21.5 6.5 L8 20 L2 22 L4 16 Z"/><path d="M15 5 L19 9"/></svg>,
+    crayon: <span style={{ fontSize: 14, lineHeight: '16px' }}>꩜</span>,
     marker: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.5 3.5 L20.5 8.5 L9 20 L4 21 L5 16 Z"/><path d="M15.5 3.5 L18 3 L21 6 L20.5 8.5"/><line x1="5" y1="16" x2="9" y2="20"/><line x1="8" y1="21" x2="11" y2="21" strokeDasharray="2 2"/></svg>,
     start: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="4" x2="5" y2="20"/><path d="M5 4 L15 4 L15 12 L5 12" fill="#2ecc71" stroke="#2ecc71"/><line x1="3" y1="20" x2="18" y2="20"/></svg>,
     finish: <svg {...stylex.props(...svgStyle)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="4" x2="5" y2="20"/><path d="M5 4 L15 4 L15 12 L5 12" fill="#e74c3c" stroke="#e74c3c"/><line x1="3" y1="20" x2="18" y2="20"/></svg>,

@@ -178,7 +178,7 @@ export class PhysicsEngine {
         this.blackHoles.push({ body, cx, cy, radius, strength: 0.4 });
         Composite.add(this.engine.world, body);
       } else if (stroke.type === 'marker' && stroke.points && stroke.points.length > 1) {
-        // Marker — conveyor belt, pushes player along the stroke direction
+        // Marker — static platform (no conveyor behavior)
         const pts = stroke.points;
         const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
         const minX = Math.min(...xs), maxX = Math.max(...xs);
@@ -187,14 +187,9 @@ export class PhysicsEngine {
         const bh = Math.max(maxY - minY, 10);
         const bcx = (minX + maxX) / 2;
         const bcy = (minY + maxY) / 2;
-        // Direction: from first point to last point
-        const dirX = pts[pts.length - 1].x - pts[0].x;
-        const dirY = pts[pts.length - 1].y - pts[0].y;
-        const len = Math.sqrt(dirX * dirX + dirY * dirY) || 1;
-        const body = Bodies.rectangle(bcx, bcy, bw, Math.max(bh, stroke.size || 8), { isStatic: true, friction: 0.3 });
+        const body = Bodies.rectangle(bcx, bcy, bw, Math.max(bh, stroke.size || 8), { isStatic: true, friction: 0.8 });
         this.bodyToStroke.set(body, stroke);
         this.bodies.push(body);
-        this.conveyors.push({ body, dirX: dirX / len, dirY: dirY / len, speed: 4, bw, bh: Math.max(bh, stroke.size || 8) });
         Composite.add(this.engine.world, body);
       } else if (stroke.type === 'start') {
         const fw = stroke.width || 50, fh = stroke.height || 60;
@@ -415,13 +410,15 @@ export class PhysicsEngine {
     }
 
     // Check mushroom trampoline
-    if (this.mushrooms && this.player.velocity.y > 0) {
+    if (this.mushrooms && this.player.velocity.y > 0.5) {
       for (const m of this.mushrooms) {
-        const dx = this.player.position.x - m.body.position.x;
-        const dy = this.player.position.y - m.body.position.y;
+        const px = this.player.position.x, py = this.player.position.y;
+        const mx = m.body.position.x, my = m.body.position.y;
         const stroke = this.bodyToStroke.get(m.body);
-        const hitDist = ((stroke?.size || 40) / 2) + 18;
-        if (Math.sqrt(dx * dx + dy * dy) < hitDist && dy < 0) {
+        const sw = (stroke?.size || 40);
+        const halfW = sw / 2 + 10;
+        const dy = my - py;
+        if (Math.abs(px - mx) < halfW && dy > 0 && dy < 30) {
           Body.setVelocity(this.player, { x: this.player.velocity.x, y: -18 });
           this.jumpCount = 0;
         }
