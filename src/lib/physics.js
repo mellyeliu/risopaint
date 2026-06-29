@@ -93,7 +93,7 @@ export class PhysicsEngine {
           const body = Bodies.circle(stroke.x, stroke.y, size / 2, { isStatic: true, isSensor: true });
           this.bodyToStroke.set(body, { ...stroke });
           this.bodies.push(body);
-          this.sparkles.push({ body, collected: false });
+          this.sparkles.push({ body, collected: false, origX: stroke.x, origY: stroke.y });
           Composite.add(this.engine.world, body);
         } else if (name === 'vine') {
           // Teleporter — warps player to top of vine
@@ -140,7 +140,7 @@ export class PhysicsEngine {
           const body = Bodies.circle(stroke.x, stroke.y, size / 2, { isStatic: true, isSensor: true });
           this.bodyToStroke.set(body, { ...stroke });
           this.bodies.push(body);
-          this.sparkles.push({ body, collected: false, isBow: true });
+          this.sparkles.push({ body, collected: false, isBow: true, origX: stroke.x, origY: stroke.y });
           Composite.add(this.engine.world, body);
         } else {
           // Default — dynamic, falls
@@ -343,7 +343,7 @@ export class PhysicsEngine {
       this.maxJumps = 2;
       this.invincibleUntil = 0;
       if (this.smokes) this.smokes.forEach(s => { s.standTime = 0; s.crumbled = false; Body.setStatic(s.body, true); });
-      if (this.sparkles) this.sparkles.forEach(s => { s.collected = false; });
+      if (this.sparkles) this.sparkles.forEach(s => { s.collected = false; Body.setPosition(s.body, { x: s.origX, y: s.origY }); });
       this.keys.r = false;
       this.keys.R = false;
       return;

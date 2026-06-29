@@ -138,6 +138,7 @@ function AppInner() {
     if (state.showGallery && route !== 'gallery') {
       navigate('gallery');
     } else if (!state.showGallery && route === 'gallery') {
+      dispatch({ type: 'SET_PHYSICS', value: false });
       navigate('canvas');
     }
   }, [state.showGallery]);
@@ -175,10 +176,11 @@ function AppInner() {
 
   const handleLandingSelect = useCallback((action) => {
     if (action === 'freeform') {
+      dispatch({ type: 'SET_PHYSICS', value: false });
       navigate('canvas');
     }
     // chapter actions will be handled later
-  }, [navigate]);
+  }, [navigate, dispatch]);
 
   // Landing screen
   if (route === 'landing') {
