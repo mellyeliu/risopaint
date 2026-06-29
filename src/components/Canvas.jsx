@@ -67,6 +67,8 @@ export default function Canvas() {
   const isDrawingRef = useRef(false);
   const physicsEngineRef = useRef(null);
   const physicsAnimRef = useRef(null);
+  const mousePosRef = useRef(null);
+  const previewRafRef = useRef(null);
 
   const currentScene = state.scenes[state.currentSceneIndex];
 
@@ -87,7 +89,7 @@ export default function Canvas() {
         c.style.height = h + 'px';
         c.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
       });
-      redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state);
+      redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
     };
     // Run on next frame to ensure layout is settled
     requestAnimationFrame(resize);
@@ -99,8 +101,8 @@ export default function Canvas() {
   useEffect(() => {
     const canvas = drawRef.current;
     if (!canvas || state.showGallery) return;
-    redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state);
-  }, [currentScene.strokes, state.pixelation, state.showGallery, state.currentSceneIndex]);
+    redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
+  }, [currentScene.strokes, state.pixelation, state.showGallery, state.currentSceneIndex, state.selectedStamp, state.tool, state.brushSize, state.color]);
 
   // Live animation loop
   useEffect(() => {
@@ -109,10 +111,15 @@ export default function Canvas() {
       animRef.current = null;
       return;
     }
+    let frameCount = 0;
     function animate() {
-      const canvas = drawRef.current;
-      if (canvas) {
-        redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state);
+      frameCount++;
+      // Redraw every 3rd frame (~20fps) for subtler crayon animation
+      if (frameCount % 3 === 0) {
+        const canvas = drawRef.current;
+        if (canvas) {
+          redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
+        }
       }
       animRef.current = requestAnimationFrame(animate);
     }
@@ -138,16 +145,16 @@ export default function Canvas() {
         const ctx = physCanvas.getContext('2d');
         ctx.clearRect(0, 0, physCanvas.width / window.devicePixelRatio, physCanvas.height / window.devicePixelRatio);
       }
-      if (drawRef.current) drawRef.current.style.opacity = '1';
+      if (drawRef.current) {
+        drawRef.current.style.opacity = '1';
+        drawRef.current.style.pointerEvents = 'auto';
+      }
       return;
     }
 
-    // Start physics
-    if (!physicsEngineRef.current) {
-      physicsEngineRef.current = new PhysicsEngine();
-    }
+    // Start physics — always create fresh to pick up code changes
+    physicsEngineRef.current = new PhysicsEngine();
     const physics = physicsEngineRef.current;
-    physics.clear();
 
     const inner = innerRef.current;
     if (!inner) return;
@@ -155,11 +162,27 @@ export default function Canvas() {
     physics.addStrokes(currentScene.strokes);
     physics.start();
 
+    // Always spawn the stick figure player
+    physics.spawnPlayer(30, 20, stamps);
+
+    // Key handlers for player control
+    const onKeyDown = (e) => {
+      if (physics.keys) physics.keys[e.key] = true;
+    };
+    const onKeyUp = (e) => {
+      if (physics.keys) physics.keys[e.key] = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+
     // Expose shake for external callers
     window._physicsShake = () => physics.shake();
 
     // Hide drawing canvas, show physics
-    if (drawRef.current) drawRef.current.style.opacity = '0';
+    if (drawRef.current) {
+      drawRef.current.style.opacity = '0';
+      drawRef.current.style.pointerEvents = 'none';
+    }
 
     const physCanvas = physRef.current;
     if (!physCanvas) return;
@@ -169,6 +192,10 @@ export default function Canvas() {
 
     function frame() {
       ctx.clearRect(0, 0, w, h);
+
+      // Draw white background so no ghosting from layers below
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
 
       const bodies = physics.getState();
       bodies.forEach(({ body, stroke, position, angle }) => {
@@ -209,6 +236,189 @@ export default function Canvas() {
         ctx.restore();
       });
 
+      // Easter egg: update and draw stick figure player
+      physics.updatePlayer();
+      const playerState = physics.getPlayerState();
+      if (playerState) {
+        const px = playerState.position.x;
+        const py = playerState.position.y;
+        const vx = playerState.velocity?.x || 0;
+        const facing = playerState.facingRight ? 1 : -1;
+        const time = performance.now() * 0.008;
+        const running = Math.abs(vx) > 0.5;
+        const legCycle = running ? Math.sin(time * 2) : 0;
+
+        ctx.save();
+        ctx.translate(px, py - 4);
+        ctx.scale(1.5 * facing, 1.5); // flip horizontally based on direction
+        ctx.strokeStyle = '#000';
+        ctx.fillStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Back braid (behind head)
+        const bounce = running ? Math.sin(time * 3) * 1 : 0;
+        ctx.beginPath();
+        ctx.moveTo(-5, -12);
+        ctx.lineTo(-6, -9 + bounce);
+        ctx.lineTo(-4, -7 + bounce);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-4, -6.5 + bounce, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Back arm (behind body)
+        const armSwing = running ? legCycle * 0.5 : 0;
+        ctx.beginPath();
+        ctx.moveTo(0, -5);
+        ctx.lineTo(-6, -3 - armSwing * 3);
+        ctx.stroke();
+
+        // Head — circle
+        ctx.beginPath();
+        ctx.arc(0, -14, 5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Bangs — short parallel lines following head curve
+        ctx.lineWidth = 1.5;
+        for (let bx = -3; bx <= 3; bx += 2) {
+          const topY = -14 - Math.sqrt(Math.max(0, 25 - bx * bx));
+          ctx.beginPath();
+          ctx.moveTo(bx, topY);
+          ctx.lineTo(bx, topY + 3);
+          ctx.stroke();
+        }
+        ctx.lineWidth = 2;
+
+        // Front braid (in front of head)
+        ctx.beginPath();
+        ctx.moveTo(5, -12);
+        ctx.lineTo(6, -9 + bounce);
+        ctx.lineTo(4, -7 + bounce);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(4, -6.5 + bounce, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(0, 1);
+        ctx.stroke();
+
+        // Front arm (in front of body)
+        ctx.beginPath();
+        ctx.moveTo(0, -5);
+        ctx.lineTo(6, -3 + armSwing * 3);
+        ctx.stroke();
+
+        // Skirt
+        ctx.beginPath();
+        ctx.moveTo(-7, 6);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(7, 6);
+        ctx.lineTo(-7, 6);
+        ctx.stroke();
+
+        // Back leg
+        ctx.beginPath();
+        ctx.moveTo(-2, 6);
+        ctx.lineTo(-3 + legCycle * 4, 14);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-3 + legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Front leg
+        ctx.beginPath();
+        ctx.moveTo(2, 6);
+        ctx.lineTo(3 - legCycle * 4, 14);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(3 - legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (playerState.won) {
+          ctx.fillStyle = '#000';
+          ctx.font = '16px Helvetica, Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('⭐ you found the star! ⭐', 0, -30);
+        }
+        ctx.restore();
+
+        // Draw hoop net
+        if (playerState.hoop) {
+          const hp = playerState.hoop;
+          ctx.save();
+          ctx.strokeStyle = '#c0392b';
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          // Left pillar
+          ctx.beginPath();
+          ctx.moveTo(hp.x - hp.w / 2, hp.y);
+          ctx.lineTo(hp.x - hp.w / 2, hp.y + hp.h);
+          ctx.stroke();
+          // Right pillar
+          ctx.beginPath();
+          ctx.moveTo(hp.x + hp.w / 2, hp.y);
+          ctx.lineTo(hp.x + hp.w / 2, hp.y + hp.h);
+          ctx.stroke();
+          // Bottom rim
+          ctx.beginPath();
+          ctx.moveTo(hp.x - hp.w / 2, hp.y + hp.h);
+          ctx.lineTo(hp.x + hp.w / 2, hp.y + hp.h);
+          ctx.stroke();
+          // Net strings
+          ctx.strokeStyle = '#e74c3c';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          for (let nx = hp.x - hp.w / 2 + 10; nx < hp.x + hp.w / 2; nx += 12) {
+            ctx.beginPath();
+            ctx.moveTo(nx, hp.y + hp.h);
+            ctx.lineTo(nx + (nx < hp.x ? -4 : 4), hp.y + hp.h + 20);
+            ctx.stroke();
+          }
+          // Cross strings
+          for (let ny = hp.y + hp.h + 5; ny < hp.y + hp.h + 18; ny += 6) {
+            ctx.beginPath();
+            ctx.moveTo(hp.x - hp.w / 2 + 5, ny);
+            ctx.lineTo(hp.x + hp.w / 2 - 5, ny);
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+
+          // Grainy white stipple on the net area
+          ctx.fillStyle = '#fff';
+          let nSeed = 42;
+          const nRand = () => { nSeed = (nSeed * 16807 + 11) % 2147483647; return (nSeed & 0x7fffffff) / 0x7fffffff; };
+          for (let i = 0; i < 80; i++) {
+            const nx = hp.x - hp.w / 2 + 8 + nRand() * (hp.w - 16);
+            const ny = hp.y + hp.h + nRand() * 18;
+            const nr = 0.5 + nRand() * 1.2;
+            ctx.globalAlpha = 0.15 + nRand() * 0.2;
+            ctx.beginPath();
+            ctx.arc(nx, ny, nr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          ctx.restore();
+
+          // Score display
+          ctx.save();
+          ctx.fillStyle = '#c0392b';
+          ctx.font = "bold 22px 'Velvelyne', serif";
+          ctx.textAlign = 'center';
+          // Flash on score
+          if (playerState.lastScoreTime && performance.now() - playerState.lastScoreTime < 600) {
+            ctx.fillText('🏀 score: ' + playerState.score, hp.x, hp.y - 6);
+          } else {
+            ctx.fillText('score: ' + playerState.score, hp.x, hp.y - 6);
+          }
+          ctx.restore();
+        }
+      }
+
       physicsAnimRef.current = requestAnimationFrame(frame);
     }
 
@@ -219,6 +429,8 @@ export default function Canvas() {
         cancelAnimationFrame(physicsAnimRef.current);
         physicsAnimRef.current = null;
       }
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
   }, [state.physicsOn]);
 
@@ -280,7 +492,7 @@ export default function Canvas() {
     }
 
     if (state.tool === 'fill') {
-      dispatch({ type: 'ADD_STROKE', stroke: { type: 'fill', color: state.color } });
+      dispatch({ type: 'ADD_STROKE', stroke: { type: 'fill', color: state.color, x, y } });
       return;
     }
 
@@ -329,17 +541,22 @@ export default function Canvas() {
       color: state.color, size: state.brushSize,
       cells: [`${gx},${gy}`], cellSet: new Set([`${gx},${gy}`]),
     };
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
   }, [state, currentScene, dispatch]);
 
   const onMove = useCallback((e) => {
-    if (!isDrawingRef.current || !strokeRef.current) return;
-    e.preventDefault?.();
     const { x, y } = e.touches ? (() => {
       const rect = drawRef.current.getBoundingClientRect();
       const t = e.touches[0];
       return { x: t.clientX - rect.left, y: t.clientY - rect.top };
     })() : { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
+
+    mousePosRef.current = { x, y };
+
+    if (!isDrawingRef.current || !strokeRef.current) {
+      return;
+    }
+    e.preventDefault?.();
 
     const s = strokeRef.current;
 
@@ -366,7 +583,7 @@ export default function Canvas() {
       if (!s.cellSet.has(key)) { s.cellSet.add(key); s.cells.push(key); }
     }
 
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
   }, [state, currentScene]);
 
   const onUp = useCallback(() => {
@@ -381,16 +598,40 @@ export default function Canvas() {
     strokeRef.current = null;
   }, [dispatch]);
 
-  // Keyboard shortcuts
+  const onLeave = useCallback(() => {
+    onUp();
+  }, [onUp]);
+
+  // Attach touch listeners with { passive: false } to allow preventDefault
   useEffect(() => {
-    let undoDebounce = false;
+    const canvas = drawRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onUp, { passive: false });
+    return () => {
+      canvas.removeEventListener('touchstart', onDown);
+      canvas.removeEventListener('touchmove', onMove);
+      canvas.removeEventListener('touchend', onUp);
+    };
+  }, [onDown, onMove, onUp]);
+
+  useEffect(() => {
+    let debounce = false;
     const onKey = (e) => {
-      if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
         e.preventDefault();
-        if (!undoDebounce) {
-          undoDebounce = true;
+        if (!debounce) {
+          debounce = true;
+          dispatch({ type: 'REDO' });
+          setTimeout(() => { debounce = false; }, 150);
+        }
+      } else if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (!debounce) {
+          debounce = true;
           dispatch({ type: 'UNDO' });
-          setTimeout(() => { undoDebounce = false; }, 150);
+          setTimeout(() => { debounce = false; }, 150);
         }
       }
     };
@@ -402,10 +643,21 @@ export default function Canvas() {
   const onWheel = useCallback((e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      const delta = e.deltaY > 0 ? -0.02 : 0.02;
       dispatch({ type: 'SET_ZOOM', value: state.zoom + delta });
     }
   }, [state.zoom, dispatch]);
+
+  // Prevent browser zoom on the whole page
+  useEffect(() => {
+    const preventZoom = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('wheel', preventZoom, { passive: false });
+    return () => document.removeEventListener('wheel', preventZoom);
+  }, []);
 
   if (state.showGallery) return null;
 
@@ -435,10 +687,7 @@ export default function Canvas() {
             onMouseDown={onDown}
             onMouseMove={onMove}
             onMouseUp={onUp}
-            onMouseLeave={onUp}
-            onTouchStart={onDown}
-            onTouchMove={onMove}
-            onTouchEnd={onUp}
+            onMouseLeave={onLeave}
           />
         </div>
       </div>

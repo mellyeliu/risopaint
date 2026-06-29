@@ -51,7 +51,7 @@ const s = stylex.create({
 
   // Panel header
   panelHeader: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#000',
     marginBottom: 6,
     letterSpacing: '0.05em',
@@ -474,7 +474,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
   return (
     <div {...stylex.props(s.leftPanel, darkMode && s.leftPanelDark)}>
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>// tools</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>✎ tools</div>
         <div {...stylex.props(s.toolGrid)}>
           {['brush', 'fill', 'erase', 'confetti', 'text', 'line', 'crayon', 'marker'].map(tool => (
             <button
@@ -495,7 +495,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       </div>
 
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>// colors</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>❐ colors</div>
         <div {...stylex.props(s.colorGrid)}>
           {colors.map(c => (
             <div
@@ -516,7 +516,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       </div>
 
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>// size</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>⟡ size</div>
         <div {...stylex.props(s.sliderBox, darkMode && s.sliderBoxDark)}>
           <input
             type="range"
@@ -545,7 +545,7 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
       </div>
 
       <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>// pixel</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>⊹ pixel</div>
         <div {...stylex.props(s.sliderBox, darkMode && s.sliderBoxDark)}>
           <input
             type="range"
@@ -554,7 +554,19 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
             value={state.pixelation}
             onChange={e => dispatch({ type: 'SET_PIXELATION', value: parseInt(e.target.value) })}
           />
-          <span {...stylex.props(s.sliderVal, darkMode && s.sliderValDark)}>{state.pixelation}</span>
+          <input
+            type="text"
+            {...stylex.props(s.sliderVal, darkMode && s.sliderValDark)}
+            value={state.pixelation}
+            onChange={e => {
+              const val = parseInt(e.target.value.replace(/[^0-9]/g, ''));
+              if (!isNaN(val) && val >= 1) dispatch({ type: 'SET_PIXELATION', value: Math.min(val, 20) });
+            }}
+            onBlur={e => {
+              const val = parseInt(e.target.value.replace(/[^0-9]/g, ''));
+              if (isNaN(val) || val < 1) dispatch({ type: 'SET_PIXELATION', value: 1 });
+            }}
+          />
         </div>
       </div>
 
@@ -582,7 +594,7 @@ export function RightPanel({ darkMode: darkModeProp } = {}) {
   return (
     <div {...stylex.props(s.rightPanel, darkMode && s.rightPanelDark)}>
       <div {...stylex.props(s.panelSection, s.panelSectionRightMobile, darkMode && s.panelSectionDark)}>
-        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>// stamps</div>
+        <div {...stylex.props(s.panelHeader, darkMode && s.panelHeaderDark)}>✿ stamps</div>
         <div {...stylex.props(s.stampGrid)}>
           {stamps.map((stamp, i) => (
             <StampButton

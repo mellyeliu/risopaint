@@ -40,8 +40,8 @@ const s = stylex.create({
     borderBottomStyle: 'solid',
     borderBottomColor: '#000',
     height: {
-      default: 38,
-      [breakpoints.mobile]: 36,
+      default: 44,
+      [breakpoints.mobile]: 38,
     },
     flexShrink: 0,
     position: 'relative',
@@ -70,13 +70,13 @@ const s = stylex.create({
   },
   menuTitle: {
     fontSize: {
-      default: 14,
-      [breakpoints.mobile]: 13,
+      default: 16,
+      [breakpoints.mobile]: 14,
     },
     fontWeight: 700,
     color: '#000',
     padding: {
-      default: '0 12px 0 8px',
+      default: '0 14px 0 10px',
       [breakpoints.mobile]: '0 8px 0 4px',
     },
     cursor: 'pointer',
@@ -86,12 +86,12 @@ const s = stylex.create({
   },
   menuItem: {
     padding: {
-      default: '0 10px',
+      default: '0 12px',
       [breakpoints.mobile]: '0 8px',
     },
     fontSize: {
-      default: 13,
-      [breakpoints.mobile]: 12,
+      default: 15,
+      [breakpoints.mobile]: 13,
     },
     color: {
       default: '#000',
@@ -124,7 +124,7 @@ const s = stylex.create({
     flex: 1,
   },
   menuByline: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#000',
     padding: '0 8px',
     display: {
@@ -151,7 +151,7 @@ const s = stylex.create({
       [breakpoints.mobile]: '0 6px',
     },
     fontSize: {
-      default: 13,
+      default: 15,
       [breakpoints.mobile]: 14,
     },
     color: {
@@ -165,6 +165,42 @@ const s = stylex.create({
       default: '#ccc',
       ':hover': '#fff',
     },
+  },
+  darkToggle: {
+    width: 40,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#bbb',
+    position: 'relative',
+    cursor: 'pointer',
+    flexShrink: 0,
+    margin: '0 8px',
+    transitionProperty: 'background-color',
+    transitionDuration: '0.2s',
+  },
+  darkToggleOn: {
+    backgroundColor: '#555',
+  },
+  darkToggleKnob: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    transitionProperty: 'left, background-color',
+    transitionDuration: '0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 9,
+    lineHeight: 1,
+  },
+  darkToggleKnobOn: {
+    left: 22,
+    backgroundColor: '#222',
+    color: '#ccc',
   },
   backdrop: {
     position: 'fixed',
@@ -188,8 +224,8 @@ const s = stylex.create({
     borderColor: '#444',
   },
   dropdownItem: {
-    padding: '4px 14px',
-    fontSize: 13,
+    padding: '5px 16px',
+    fontSize: 14,
     color: {
       default: '#333',
       ':hover': '#fff',
@@ -321,24 +357,19 @@ export default function MenuBar({ onAction }) {
         </a>
       </span>
 
-      <button
-        {...stylex.props(s.fontToggle, darkMode && s.fontToggleDark)}
+      <div
+        {...stylex.props(s.darkToggle, darkMode && s.darkToggleOn)}
         onClick={() => {
           dispatch({ type: 'SET_DARK_MODE', value: !state.darkMode });
           document.body.style.background = !state.darkMode ? '#202020' : '#d8d8d8';
         }}
       >
-        {state.darkMode ? '☀' : '☾'}
-      </button>
-
-      <button
-        {...stylex.props(s.fontToggle, darkMode && s.fontToggleDark)}
-        onClick={() => {
-          dispatch({ type: 'SET_FULLSCREEN', value: state.fullscreen === 0 ? 1 : 0 });
-        }}
-      >
-        ⛶
-      </button>
+        <div {...stylex.props(s.darkToggleKnob, darkMode && s.darkToggleKnobOn)}>
+          {darkMode
+            ? <svg width="8" height="8" viewBox="0 0 16 16" fill="currentColor" style={{ transform: 'rotate(-10deg)' }}><circle cx="8" cy="8" r="6"/><circle cx="10" cy="6" r="5" fill="#222"/></svg>
+            : <span style={{ fontSize: 11 }}>☀</span>}
+        </div>
+      </div>
 
       {openMenu && (
         <div {...stylex.props(s.backdrop)} onClick={() => setOpenMenu(null)} />

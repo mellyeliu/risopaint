@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import * as stylex from '@stylexjs/stylex';
 import { useStore } from '../state/store.jsx';
 import { getGalleryItems, submitToGallery } from '../lib/gallery.js';
-import { drawStroke } from '../lib/tools.js';
-import { applyGrainExport } from '../lib/grain.js';
 import { breakpoints, grain } from '../tokens.stylex.js';
 
 const s = stylex.create({
@@ -309,20 +307,13 @@ export function SubmitPopup({ open, onClose }) {
   if (!open) return null;
 
   const handleSubmit = async () => {
-    const currentScene = state.scenes[state.currentSceneIndex];
-    const w = 800;
-    const h = 600;
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = w * window.devicePixelRatio;
-    tempCanvas.height = h * window.devicePixelRatio;
-    const ctx = tempCanvas.getContext('2d');
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    currentScene.strokes.forEach(stroke => drawStroke(ctx, stroke, state));
-    applyGrainExport(ctx, w, h, 25);
+    // Grab the actual drawing canvas content
+    const drawCanvas = document.getElementById('drawing-canvas');
+    if (!drawCanvas) return;
 
     setStatus('submitting');
     try {
-      await submitToGallery(tempCanvas, name, message);
+      await submitToGallery(drawCanvas, name, message);
       setName('');
       setMessage('');
       setStatus('done');

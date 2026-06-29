@@ -19,8 +19,8 @@ const s = stylex.create({
     display: 'flex',
     alignItems: 'stretch',
     height: {
-      default: '34px',
-      [breakpoints.mobile]: '32px',
+      default: '40px',
+      [breakpoints.mobile]: '34px',
     },
     flexWrap: {
       default: 'initial',
@@ -33,7 +33,7 @@ const s = stylex.create({
   },
   actionBtn: {
     padding: {
-      default: '0 12px',
+      default: '0 14px',
       [breakpoints.mobile]: '6px 8px',
       [breakpoints.small]: '5px 6px',
     },
@@ -41,9 +41,9 @@ const s = stylex.create({
     borderRightStyle: 'solid',
     borderRightColor: '#000',
     fontSize: {
-      default: '13px',
-      [breakpoints.mobile]: '11px',
-      [breakpoints.small]: '10px',
+      default: '15px',
+      [breakpoints.mobile]: '12px',
+      [breakpoints.small]: '11px',
     },
     color: {
       default: '#000',
@@ -96,15 +96,15 @@ const s = stylex.create({
   sceneTab: {
     position: 'relative',
     padding: {
-      default: '0 10px',
+      default: '0 12px',
       [breakpoints.mobile]: '6px 8px',
     },
     borderRightWidth: 1,
     borderRightStyle: 'solid',
     borderRightColor: '#000',
     fontSize: {
-      default: '13px',
-      [breakpoints.mobile]: '11px',
+      default: '15px',
+      [breakpoints.mobile]: '12px',
     },
     color: {
       default: '#000',
@@ -179,17 +179,7 @@ export default function BottomBar({ onAction }) {
           )}
           onClick={() => dispatch({ type: 'SET_PHYSICS', value: !state.physicsOn })}
         >
-          [{state.physicsOn ? 'stop' : 'drop!'}]
-        </button>
-        <button
-          {...stylex.props(
-            s.actionBtn,
-            darkMode && s.actionBtnDark,
-            !state.physicsOn && s.actionDisabled,
-          )}
-          onClick={() => onAction?.('shake')}
-        >
-          [shake]
+          [{state.physicsOn ? 'ᝰ draw' : '꩜ play'}]
         </button>
         <button
           {...stylex.props(s.actionBtn, darkMode && s.actionBtnDark)}
@@ -233,12 +223,6 @@ export default function BottomBar({ onAction }) {
             +
           </button>
         </div>
-        <button
-          {...stylex.props(s.actionBtn, darkMode && s.actionBtnDark)}
-          onClick={() => onAction?.('play')}
-        >
-          [▶ play]
-        </button>
         <button
           {...stylex.props(s.actionBtn, darkMode && s.actionBtnDark)}
           onClick={() => dispatch({ type: 'SET_SHOW_GALLERY', value: true })}

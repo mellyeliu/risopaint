@@ -2,7 +2,7 @@ import { stamps, getStampImage, getStampImageAlt } from './stamps.js';
 import { getDitheredStamp } from './dither.js';
 import { applyGrain } from './grain.js';
 
-const GRID_SIZE = 16;
+const GRID_SIZE = 12;
 
 // Grid edge helpers
 function getClosestEdge(px, py, prevEdge) {
@@ -38,13 +38,75 @@ function getEdgeEndpoints(edge) {
 export function drawStroke(ctx, stroke, state) {
   if (stroke.type === 'fill') {
     const canvas = ctx.canvas;
-    const w = canvas.width / window.devicePixelRatio;
-    const h = canvas.height / window.devicePixelRatio;
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.fillStyle = stroke.color;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
+    const pw = canvas.width;
+    const ph = canvas.height;
+    const dpr = window.devicePixelRatio;
+
+    if (stroke.x == null || stroke.y == null) {
+      // Legacy fill — solid background
+      const w = pw / dpr;
+      const h = ph / dpr;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = stroke.color;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+      return;
+    }
+
+    // Flood fill at click position
+    const sx = Math.floor(stroke.x * dpr);
+    const sy = Math.floor(stroke.y * dpr);
+    if (sx < 0 || sx >= pw || sy < 0 || sy >= ph) return;
+
+    const imageData = ctx.getImageData(0, 0, pw, ph);
+    const data = imageData.data;
+    const idx = (sy * pw + sx) * 4;
+    const targetR = data[idx], targetG = data[idx + 1], targetB = data[idx + 2], targetA = data[idx + 3];
+
+    // Parse fill color
+    const tmp = document.createElement('canvas');
+    tmp.width = 1; tmp.height = 1;
+    const tmpCtx = tmp.getContext('2d');
+    tmpCtx.fillStyle = stroke.color;
+    tmpCtx.fillRect(0, 0, 1, 1);
+    const fillData = tmpCtx.getImageData(0, 0, 1, 1).data;
+    const fillR = fillData[0], fillG = fillData[1], fillB = fillData[2], fillA = fillData[3];
+
+    // Don't fill if target is already the fill color
+    if (targetR === fillR && targetG === fillG && targetB === fillB && targetA === fillA) return;
+
+    const tolerance = 30;
+    const match = (i) => {
+      return Math.abs(data[i] - targetR) <= tolerance &&
+             Math.abs(data[i + 1] - targetG) <= tolerance &&
+             Math.abs(data[i + 2] - targetB) <= tolerance &&
+             Math.abs(data[i + 3] - targetA) <= tolerance;
+    };
+
+    const stack = [sx, sy];
+    const visited = new Uint8Array(pw * ph);
+
+    while (stack.length > 0) {
+      const cy = stack.pop();
+      const cx = stack.pop();
+      const pos = cy * pw + cx;
+      if (cx < 0 || cx >= pw || cy < 0 || cy >= ph) continue;
+      if (visited[pos]) continue;
+      const pi = pos * 4;
+      if (!match(pi)) continue;
+      visited[pos] = 1;
+      data[pi] = fillR;
+      data[pi + 1] = fillG;
+      data[pi + 2] = fillB;
+      data[pi + 3] = fillA;
+      stack.push(cx + 1, cy);
+      stack.push(cx - 1, cy);
+      stack.push(cx, cy + 1);
+      stack.push(cx, cy - 1);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
   } else if (stroke.type === 'brush' || stroke.type === 'erase') {
     if (!stroke.cells || stroke.cells.length < 1) return;
     ctx.save();
@@ -53,7 +115,7 @@ export function drawStroke(ctx, stroke, state) {
       ctx.fillStyle = 'rgba(0,0,0,1)';
     } else {
       ctx.fillStyle = stroke.color;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 1;
     }
     const brushCells = Math.max(1, Math.round(stroke.size / GRID_SIZE));
     for (const key of stroke.cells) {
@@ -262,7 +324,7 @@ function getGridPattern(w, h) {
 // Reusable pixelation canvas
 let pixelCanvas = null;
 
-export function redrawCanvas(canvas, strokes, currentStroke, state) {
+export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const w = canvas.width / window.devicePixelRatio;
@@ -274,9 +336,10 @@ export function redrawCanvas(canvas, strokes, currentStroke, state) {
   ctx.drawImage(getGridPattern(w, h), 0, 0);
 
   // Draw all strokes
-  const allStrokes = [...strokes];
-  if (currentStroke) allStrokes.push(currentStroke);
-  allStrokes.forEach(s => drawStroke(ctx, s, state));
+  for (let i = 0; i < strokes.length; i++) {
+    drawStroke(ctx, strokes[i], state);
+  }
+  if (currentStroke) drawStroke(ctx, currentStroke, state);
 
   // Pixelation
   if (state.pixelation > 1) {

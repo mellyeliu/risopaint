@@ -1,9 +1,9 @@
 import { createContext, useContext, useReducer, useCallback } from 'react';
 
-const GRID_SIZE = 16;
+const GRID_SIZE = 12;
 
 function createScene(name) {
-  return { name, strokes: [], narrative: '', snapshot: null };
+  return { name, strokes: [], redoStack: [], narrative: '', snapshot: null };
 }
 
 const initialState = {
@@ -17,7 +17,7 @@ const initialState = {
   isDrawing: false,
   currentStroke: null,
   pixelation: 1,
-  darkMode: window.matchMedia?.('(prefers-color-scheme: dark)').matches || false,
+  darkMode: true,
   fullscreen: 1,
   zoom: 1,
   showGallery: false,
@@ -114,21 +114,40 @@ function reducer(state, action) {
         ...state,
         scenes: state.scenes.map((s, i) =>
           i === state.currentSceneIndex
-            ? { ...s, strokes: [...s.strokes, action.stroke] }
+            ? { ...s, strokes: [...s.strokes, action.stroke], redoStack: [] }
             : s
         ),
       };
       break;
-    case 'UNDO':
+    case 'UNDO': {
+      const scene = state.scenes[state.currentSceneIndex];
+      if (!scene.strokes.length) return state;
+      const removed = scene.strokes[scene.strokes.length - 1];
       newState = {
         ...state,
         scenes: state.scenes.map((s, i) =>
           i === state.currentSceneIndex
-            ? { ...s, strokes: s.strokes.slice(0, -1) }
+            ? { ...s, strokes: s.strokes.slice(0, -1), redoStack: [...(s.redoStack || []), removed] }
             : s
         ),
       };
       break;
+    }
+    case 'REDO': {
+      const scene = state.scenes[state.currentSceneIndex];
+      const stack = scene.redoStack || [];
+      if (!stack.length) return state;
+      const restored = stack[stack.length - 1];
+      newState = {
+        ...state,
+        scenes: state.scenes.map((s, i) =>
+          i === state.currentSceneIndex
+            ? { ...s, strokes: [...s.strokes, restored], redoStack: stack.slice(0, -1) }
+            : s
+        ),
+      };
+      break;
+    }
     case 'CLEAR':
       newState = {
         ...state,
