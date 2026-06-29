@@ -261,6 +261,7 @@ export class PhysicsEngine {
     this.wasJumpPressed = false;
     this.facingRight = true;
     this.maxJumps = 2;
+    this.lastActiveTime = performance.now();
   }
 
   updatePlayer() {
@@ -481,6 +482,9 @@ export class PhysicsEngine {
     const jumpVel = -7;
     let vx = this.player.velocity.x;
 
+    const anyKey = this.keys?.ArrowLeft || this.keys?.a || this.keys?.ArrowRight || this.keys?.d || this.keys?.ArrowUp || this.keys?.w || this.keys?.ArrowDown || this.keys?.s;
+    if (anyKey) this.lastActiveTime = now;
+
     if (this.keys?.ArrowLeft || this.keys?.a) { vx = -speed; this.facingRight = false; }
     else if (this.keys?.ArrowRight || this.keys?.d) { vx = speed; this.facingRight = true; }
     else { vx *= 0.7; }
@@ -534,6 +538,7 @@ export class PhysicsEngine {
       startZone: this.startZone,
       invincible: performance.now() < (this.invincibleUntil || 0),
       invincibleUntil: this.invincibleUntil || 0,
+      sleeping: !this.playerDead && !this.playerWon && (performance.now() - (this.lastActiveTime || 0)) > 10000,
     };
   }
 }

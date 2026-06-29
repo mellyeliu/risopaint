@@ -371,7 +371,7 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) 
   const w = canvas.width / window.devicePixelRatio;
   const h = canvas.height / window.devicePixelRatio;
 
-  if (!state.smearMode || !canvas._hasDrawn) {
+  if (!state.smearMode || !canvas._hasDrawn || strokes.length === 0) {
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(getGridPattern(w, h), 0, 0);
     canvas._hasDrawn = true;

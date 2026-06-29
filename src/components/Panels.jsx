@@ -569,31 +569,6 @@ export default function LeftPanel({ darkMode: darkModeProp } = {}) {
           />
         </div>
       </div>
-
-      <div {...stylex.props(s.panelSection, s.panelSectionLeftMobile, darkMode && s.panelSectionDark)}>
-        <button
-          {...stylex.props(
-            s.liveToggleBtn,
-            state.liveMode && s.liveToggleBtnActive,
-            darkMode && s.liveToggleBtnDark,
-            darkMode && state.liveMode && s.liveToggleBtnDarkActive,
-          )}
-          onClick={() => dispatch({ type: 'SET_LIVE_MODE', value: !state.liveMode })}
-        >
-          {state.liveMode ? '◉ live' : '○ live'}
-        </button>
-        <button
-          {...stylex.props(
-            s.liveToggleBtn,
-            state.smearMode && s.liveToggleBtnActive,
-            darkMode && s.liveToggleBtnDark,
-            darkMode && state.smearMode && s.liveToggleBtnDarkActive,
-          )}
-          onClick={() => dispatch({ type: 'SET_SMEAR_MODE', value: !state.smearMode })}
-        >
-          {state.smearMode ? '◉ smear' : '○ smear'}
-        </button>
-      </div>
     </div>
   );
 }
@@ -618,6 +593,30 @@ export function RightPanel({ darkMode: darkModeProp } = {}) {
             />
           ))}
         </div>
+      </div>
+      <div {...stylex.props(s.panelSection, s.panelSectionRightMobile, darkMode && s.panelSectionDark)}>
+        <button
+          {...stylex.props(
+            s.liveToggleBtn,
+            state.liveMode && s.liveToggleBtnActive,
+            darkMode && s.liveToggleBtnDark,
+            darkMode && state.liveMode && s.liveToggleBtnDarkActive,
+          )}
+          onClick={() => dispatch({ type: 'SET_LIVE_MODE', value: !state.liveMode })}
+        >
+          {state.liveMode ? '◉ live' : '○ live'}
+        </button>
+        <button
+          {...stylex.props(
+            s.liveToggleBtn,
+            state.smearMode && s.liveToggleBtnActive,
+            darkMode && s.liveToggleBtnDark,
+            darkMode && state.smearMode && s.liveToggleBtnDarkActive,
+          )}
+          onClick={() => dispatch({ type: 'SET_SMEAR_MODE', value: !state.smearMode })}
+        >
+          {state.smearMode ? '◉ smear' : '○ smear'}
+        </button>
       </div>
     </div>
   );

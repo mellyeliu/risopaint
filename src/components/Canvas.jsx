@@ -353,50 +353,143 @@ export default function Canvas() {
           // Alive sprite
           ctx.save();
           ctx.translate(px, py - 4);
-          ctx.scale(1.5 * facing, 1.5);
+          ctx.scale(1.8 * facing, 1.8);
           ctx.strokeStyle = '#000';
           ctx.fillStyle = '#000';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 1.6;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
 
+          // Wobbly circle helper for doodled look
+          const wobbleCircle = (wcx, wcy, r, segments) => {
+            ctx.beginPath();
+            for (let i = 0; i <= segments; i++) {
+              const a = (i / segments) * Math.PI * 2;
+              const wr = r * (1 + Math.sin(a * 5 + wcx * 0.3) * 0.06);
+              const wx = wcx + Math.cos(a) * wr;
+              const wy = wcy + Math.sin(a) * wr;
+              if (i === 0) ctx.moveTo(wx, wy);
+              else ctx.lineTo(wx, wy);
+            }
+            ctx.stroke();
+          };
+
+          // Wobbly line helper
+          const wobbleLine = (x1, y1, x2, y2) => {
+            const mx = (x1 + x2) / 2 + (Math.sin(x1 * 3.1 + y1 * 2.7) * 0.8);
+            const my = (y1 + y2) / 2 + (Math.cos(x1 * 2.3 + y2 * 1.9) * 0.8);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.quadraticCurveTo(mx, my, x2, y2);
+            ctx.stroke();
+          };
+
           const bounce = running ? Math.sin(time * 3) * 1 : 0;
-          // Back braid
+          const sleeping = playerState.sleeping;
+
+          // Back braid strands (behind head)
           ctx.beginPath();
-          ctx.moveTo(-5, -12); ctx.lineTo(-6, -9 + bounce); ctx.lineTo(-4, -7 + bounce);
+          ctx.moveTo(-5, -13);
+          ctx.quadraticCurveTo(-9, -10 + bounce, -7, -7 + bounce);
+          ctx.quadraticCurveTo(-5, -4 + bounce, -9, -2 + bounce);
           ctx.stroke();
-          ctx.beginPath(); ctx.arc(-4, -6.5 + bounce, 1, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-5, -13);
+          ctx.quadraticCurveTo(-3, -10 + bounce, -7, -7 + bounce);
+          ctx.quadraticCurveTo(-9, -4 + bounce, -5, -2 + bounce);
+          ctx.stroke();
+
           // Back arm
           const armSwing = running ? legCycle * 0.5 : 0;
-          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-6, -3 - armSwing * 3); ctx.stroke();
-          // Head
-          ctx.beginPath(); ctx.arc(0, -14, 5, 0, Math.PI * 2); ctx.stroke();
+          const idleArm = running ? 0 : Math.sin(time * 0.6) * 1;
+          wobbleLine(0, -6, -5, -1 - armSwing * 3 + idleArm);
+
+          // Head — wobbly circle
+          wobbleCircle(0, -14, 5, 20);
+
+          // Pigtail tie circles — drawn after head so white center is visible on both sides
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(-5, -14, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(5, -14, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.arc(-5, -14, 1.5, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(5, -14, 1.5, 0, Math.PI * 2); ctx.stroke();
+
+          // Eyes
+          if (sleeping) {
+            // Sleeping — closed eyes with Zs
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-3, -13); ctx.lineTo(-1, -13); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(1, -13); ctx.lineTo(3, -13); ctx.stroke();
+            ctx.lineWidth = 1.6;
+            // Zzz
+            ctx.font = "6px 'Velvelyne', serif";
+            ctx.fillText('z', 6, -18 + Math.sin(time * 0.5) * 1);
+            ctx.font = "8px 'Velvelyne', serif";
+            ctx.fillText('z', 9, -22 + Math.sin(time * 0.5 + 1) * 1);
+          } else {
+            const blinkCycle = Math.sin(time * 0.25) > 0.98;
+            if (blinkCycle) {
+              // Blink — tiny lines
+              ctx.lineWidth = 1;
+              ctx.beginPath(); ctx.moveTo(-2.5, -13); ctx.lineTo(-1.5, -13); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(1.5, -13); ctx.lineTo(2.5, -13); ctx.stroke();
+              ctx.lineWidth = 1.6;
+            } else {
+              ctx.beginPath(); ctx.arc(-2, -13, 0.7, 0, Math.PI * 2); ctx.fill();
+              ctx.beginPath(); ctx.arc(2, -13, 0.7, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+
           // Bangs
           ctx.lineWidth = 1.5;
           for (let bx = -3; bx <= 3; bx += 2) {
             const topY = -14 - Math.sqrt(Math.max(0, 25 - bx * bx));
             ctx.beginPath(); ctx.moveTo(bx, topY); ctx.lineTo(bx, topY + 3); ctx.stroke();
           }
-          ctx.lineWidth = 2;
-          // Front braid
+          ctx.lineWidth = 1.6;
+
+          // Front braid strands
           ctx.beginPath();
-          ctx.moveTo(5, -12); ctx.lineTo(6, -9 + bounce); ctx.lineTo(4, -7 + bounce);
+          ctx.moveTo(5, -13);
+          ctx.quadraticCurveTo(9, -10 + bounce, 7, -7 + bounce);
+          ctx.quadraticCurveTo(5, -4 + bounce, 9, -2 + bounce);
           ctx.stroke();
-          ctx.beginPath(); ctx.arc(4, -6.5 + bounce, 1, 0, Math.PI * 2); ctx.fill();
-          // Body
-          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 1); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(5, -13);
+          ctx.quadraticCurveTo(3, -10 + bounce, 7, -7 + bounce);
+          ctx.quadraticCurveTo(9, -4 + bounce, 5, -2 + bounce);
+          ctx.stroke();
+
+          // Body — wobbly line, stops at dress top
+          wobbleLine(0, -9, 0, -6);
           // Front arm
-          ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(6, -3 + armSwing * 3); ctx.stroke();
-          // Skirt
+          wobbleLine(0, -6, 5, -1 + armSwing * 3 - idleArm);
+          // Skirt — curved triangle, narrower at top, slightly less wide
           ctx.beginPath();
-          ctx.moveTo(-7, 6); ctx.lineTo(0, 0); ctx.lineTo(7, 6); ctx.lineTo(-7, 6);
+          ctx.moveTo(0, -6);
+          ctx.quadraticCurveTo(-2, 0, -6, 6);
+          ctx.lineTo(6, 6);
+          ctx.quadraticCurveTo(2, 0, 0, -6);
           ctx.stroke();
+          // Hem line
+          ctx.beginPath(); ctx.moveTo(-6, 6); ctx.lineTo(6, 6); ctx.stroke();
           // Back leg + shoe
-          ctx.beginPath(); ctx.moveTo(-2, 6); ctx.lineTo(-3 + legCycle * 4, 14); ctx.stroke();
-          ctx.beginPath(); ctx.ellipse(-3 + legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          const backLegX = -2 + legCycle * 3;
+          wobbleLine(-1, 6, backLegX, 14);
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.ellipse(backLegX - 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.ellipse(backLegX - 1.5, 14.5, 1.5, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
           // Front leg + shoe
-          ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(3 - legCycle * 4, 14); ctx.stroke();
-          ctx.beginPath(); ctx.ellipse(3 - legCycle * 4, 15, 3.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+          const frontLegX = 2 - legCycle * 3;
+          wobbleLine(1, 6, frontLegX, 14);
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 2.8, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.ellipse(frontLegX + 1.5, 14.5, 1.5, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#000';
           // Invincibility glow
           if (playerState.invincible) {
             ctx.globalAlpha = 0.15;
