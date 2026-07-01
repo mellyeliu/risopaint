@@ -119,7 +119,7 @@ export default function Canvas() {
       if (frameCount % 3 === 0) {
         const canvas = drawRef.current;
         if (canvas) {
-          redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
+          redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
         }
       }
       animRef.current = requestAnimationFrame(animate);
@@ -863,7 +863,7 @@ export default function Canvas() {
       color: state.color, size: state.brushSize,
       cells: [`${gx},${gy}`], cellSet: new Set([`${gx},${gy}`]),
     };
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
   }, [state, currentScene, dispatch]);
 
   const onMove = useCallback((e) => {
@@ -905,7 +905,7 @@ export default function Canvas() {
       if (!s.cellSet.has(key)) { s.cellSet.add(key); s.cells.push(key); }
     }
 
-    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
+    redrawCanvas(drawRef.current, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
   }, [state, currentScene]);
 
   const onUp = useCallback(() => {

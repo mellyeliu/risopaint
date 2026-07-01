@@ -384,7 +384,7 @@ export function clearStrokeCache() {
   strokeCacheCount = -1;
 }
 
-export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, skipGrain) {
+export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const w = canvas.width / window.devicePixelRatio;
@@ -401,7 +401,6 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
     && strokes.length === strokeCacheCount + 1;
 
   if (canIncrement) {
-    // Just draw the new stroke onto existing cache (already has grain)
     const newStroke = strokes[strokes.length - 1];
     const skip = hasAnimated && (newStroke.type === 'crayon' || newStroke.type === 'stamp');
     if (!skip) {
@@ -426,7 +425,6 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
       if (hasAnimated && (strokes[i].type === 'crayon' || strokes[i].type === 'stamp')) continue;
       drawStroke(cacheCtx, strokes[i], state);
     }
-    applyGrain(cacheCtx, w, h, 25);
     strokeCacheCount = strokes.length;
     strokeCacheW = w;
     strokeCacheH = h;
@@ -466,6 +464,8 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
     ctx.drawImage(pixelCanvas, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
   }
+
+  applyGrain(ctx, w, h, 25);
 }
 
 export function interpolateCells(lastKey, gx, gy, cellSet, cells) {
