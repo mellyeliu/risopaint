@@ -74,7 +74,7 @@ const s = stylex.create({
       default: '0 14px 0 10px',
       [breakpoints.mobile]: '0 8px 0 4px',
     },
-    cursor: 'default',
+    cursor: 'pointer',
   },
   menuTitleDark: {
     color: '#ccc',
@@ -294,7 +294,15 @@ export default function MenuBar({ onAction }) {
     <div {...stylex.props(s.menuBar, darkMode && s.menuBarDark)}>
       <div {...stylex.props(s.grain)} />
 
-      <span {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}>
+      <span
+        {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}
+        onClick={() => {
+          if (state.showGallery) dispatch({ type: 'SET_SHOW_GALLERY', value: false });
+          sessionStorage.removeItem('risopaint-route');
+          history.pushState(null, '', '/');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }}
+      >
         ❀ risopaint
       </span>
 
