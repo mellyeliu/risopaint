@@ -8,14 +8,18 @@ import BottomBar from './components/BottomBar.jsx';
 import Gallery, { SubmitPopup } from './components/Gallery.jsx';
 import StarfishBg from './components/StarfishBg.jsx';
 import LandingScreen from './components/LandingScreen.jsx';
-import { initGallery } from './lib/gallery.js';
+import JournalScreen from './components/JournalScreen.jsx';
+import { initGallery, fixBlackBackgrounds } from './lib/gallery.js';
 import { preloadStamps } from './lib/stamps.js';
+import { getLevel, getChapter, exportCurrentLevel } from './lib/levels.js';
 import { breakpoints, grain } from './tokens.stylex.js';
 import './styles.css';
 import '@fontsource/syne-mono';
 
 preloadStamps();
 initGallery();
+window._exportLevel = exportCurrentLevel;
+window._fixBlackBackgrounds = fixBlackBackgrounds;
 
 const s = stylex.create({
   editorFrame: {
@@ -95,10 +99,11 @@ function useRoute() {
   const getRoute = () => {
     const path = window.location.pathname;
     if (path === '/gallery') return 'gallery';
-    if (path === '/canvas' || path === '/editor') return 'canvas';
+    if (path === '/game') return 'landing';
+    if (path === '/journal') return 'journal';
     const saved = sessionStorage.getItem('risopaint-route');
-    if (saved === 'canvas' || saved === 'gallery') return saved;
-    return 'landing';
+    if (saved === 'gallery') return saved;
+    return 'canvas';
   };
   const [route, setRoute] = useState(getRoute);
 
@@ -109,9 +114,9 @@ function useRoute() {
   }, []);
 
   const navigate = useCallback((to) => {
-    const paths = { gallery: '/gallery', canvas: '/canvas', landing: '/' };
+    const paths = { gallery: '/gallery', canvas: '/', landing: '/game', journal: '/game' };
     history.pushState(null, '', paths[to] || '/');
-    if (to !== 'landing') sessionStorage.setItem('risopaint-route', to);
+    if (to === 'gallery') sessionStorage.setItem('risopaint-route', to);
     else sessionStorage.removeItem('risopaint-route');
     setRoute(to);
   }, []);
@@ -123,6 +128,7 @@ function AppInner() {
   const { state, dispatch } = useStore();
   const [submitOpen, setSubmitOpen] = useState(false);
   const [route, navigate] = useRoute();
+  const [journalState, setJournalState] = useState(null);
 
   const showGallery = route === 'gallery';
 
@@ -143,6 +149,23 @@ function AppInner() {
     }
   }, [state.showGallery]);
 
+  // Listen for level completion from Canvas
+  useEffect(() => {
+    const handler = (e) => {
+      const chapterIndex = e.detail?.chapterIndex;
+      if (chapterIndex != null) {
+        const chapter = getChapter(chapterIndex);
+        if (chapter) {
+          dispatch({ type: 'SET_PHYSICS', value: false });
+          setJournalState({ chapterIndex, phase: 'post' });
+          navigate('journal');
+        }
+      }
+    };
+    window.addEventListener('level-complete', handler);
+    return () => window.removeEventListener('level-complete', handler);
+  }, [dispatch, navigate]);
+
   const font = { family: "'Velvelyne', serif", sizeBoost: 9 };
 
   const isDark = state.darkMode;
@@ -154,19 +177,17 @@ function AppInner() {
 
   useEffect(() => {
     const app = document.getElementById('app');
-    if (app) app.style.padding = (isFullbleed || route === 'landing') ? '0' : '14px';
+    if (app) app.style.padding = (isFullbleed || route === 'landing' || route === 'journal') ? '0' : '14px';
   }, [isFullbleed, route]);
 
   const handleAction = (action) => {
     switch (action) {
       case 'export':
-        // TODO: save canvas as PNG
         break;
       case 'submit':
         setSubmitOpen(true);
         break;
       case 'play':
-        // TODO: play story
         break;
       case 'shake':
         window._physicsShake?.();
@@ -178,9 +199,59 @@ function AppInner() {
     if (action === 'freeform') {
       dispatch({ type: 'SET_PHYSICS', value: false });
       navigate('canvas');
+    } else if (action.startsWith('chapter-')) {
+      const chapterNum = parseInt(action.split('-')[1], 10);
+      const chapter = getChapter(chapterNum - 1);
+      if (chapter) {
+        setJournalState({ chapterIndex: chapterNum - 1, phase: 'pre' });
+        navigate('journal');
+      }
     }
-    // chapter actions will be handled later
   }, [navigate, dispatch]);
+
+  const handleJournalContinue = useCallback(() => {
+    if (!journalState) return;
+    const { chapterIndex, phase } = journalState;
+
+    if (phase === 'pre') {
+      const level = getLevel(chapterIndex);
+      if (level) {
+        dispatch({ type: 'LOAD_LEVEL', strokes: level, name: `Chapter ${chapterIndex + 1}`, chapterIndex });
+        dispatch({ type: 'SET_PHYSICS', value: true });
+        setJournalState(null);
+        navigate('canvas');
+      }
+    } else {
+      setJournalState(null);
+      navigate('landing');
+    }
+  }, [journalState, dispatch, navigate]);
+
+  // Journal screen
+  if (route === 'journal' && journalState) {
+    const chapter = getChapter(journalState.chapterIndex);
+    if (chapter) {
+      return (
+        <>
+          {!isDark && <StarfishBg darkMode={false} />}
+          {isDark && <StarfishBg darkMode={true} />}
+          <div
+            {...stylex.props(s.editorFrame, isDark && s.dark, s.fullbleed)}
+            style={{ fontFamily: font.family, fontSize: `${13 + font.sizeBoost}px` }}
+          >
+            <JournalScreen
+              chapter={chapter}
+              chapterIndex={journalState.chapterIndex}
+              phase={journalState.phase}
+              darkMode={isDark}
+              onContinue={handleJournalContinue}
+            />
+            <div {...stylex.props(s.grainOverlay)} />
+          </div>
+        </>
+      );
+    }
+  }
 
   // Landing screen
   if (route === 'landing') {
@@ -237,7 +308,6 @@ function AppInner() {
 
         <SubmitPopup open={submitOpen} onClose={() => setSubmitOpen(false)} />
 
-        {/* Grain overlay — replaces ::after pseudo-element */}
         <div {...stylex.props(s.grainOverlay)} />
       </div>
     </>

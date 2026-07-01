@@ -104,9 +104,10 @@ export default function Canvas() {
     redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
   }, [currentScene.strokes, state.pixelation, state.showGallery, state.currentSceneIndex, state.selectedStamp, state.tool, state.brushSize, state.color]);
 
-  // Live animation loop
+  // Live animation loop — for crayon and stamp animations
   useEffect(() => {
-    if (!state.liveMode || state.physicsOn || state.showGallery) {
+    const hasAnimated = currentScene.strokes.some(s => s.type === 'crayon' || s.type === 'stamp');
+    if (!state.liveMode || state.physicsOn || state.showGallery || !hasAnimated) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       animRef.current = null;
       return;
@@ -118,7 +119,7 @@ export default function Canvas() {
       if (frameCount % 3 === 0) {
         const canvas = drawRef.current;
         if (canvas) {
-          redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current);
+          redrawCanvas(canvas, currentScene.strokes, strokeRef.current, state, mousePosRef.current, true);
         }
       }
       animRef.current = requestAnimationFrame(animate);
@@ -191,16 +192,17 @@ export default function Canvas() {
     const w = physCanvas.width / window.devicePixelRatio;
     const h = physCanvas.height / window.devicePixelRatio;
 
-    // Pre-render static strokes (crayon/marker) to offscreen canvas
+    // Pre-render marker strokes to offscreen canvas (crayon drawn fresh for animation)
     let staticStrokesCanvas = null;
-    const staticStrokes = currentScene.strokes.filter(s => s.type === 'crayon' || s.type === 'marker');
-    if (staticStrokes.length > 0) {
+    const markerStrokes = currentScene.strokes.filter(s => s.type === 'marker');
+    const crayonStrokes = currentScene.strokes.filter(s => s.type === 'crayon');
+    if (markerStrokes.length > 0) {
       staticStrokesCanvas = document.createElement('canvas');
       staticStrokesCanvas.width = physCanvas.width;
       staticStrokesCanvas.height = physCanvas.height;
       const sCtx = staticStrokesCanvas.getContext('2d');
       sCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      for (const stroke of staticStrokes) {
+      for (const stroke of markerStrokes) {
         drawStroke(sCtx, stroke, state);
       }
     }
@@ -213,12 +215,17 @@ export default function Canvas() {
       ctx.fillRect(0, 0, w, h);
       ctx.drawImage(getGridPattern(w, h), 0, 0);
 
-      // Draw cached static strokes
+      // Draw cached marker strokes
       if (staticStrokesCanvas) {
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(staticStrokesCanvas, 0, 0);
         ctx.restore();
+      }
+
+      // Draw crayon strokes fresh each frame for animation
+      for (const stroke of crayonStrokes) {
+        drawStroke(ctx, stroke, state);
       }
 
       const bodies = physics.getState();
@@ -619,6 +626,14 @@ export default function Canvas() {
           ctx.fillText('☠ game over — press R to respawn', w / 2, 30);
           ctx.restore();
         } else if (playerState.won) {
+          if (state.currentChapter != null && !physics._completeFired) {
+            physics._completeFired = true;
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('level-complete', {
+                detail: { chapterIndex: state.currentChapter },
+              }));
+            }, 1500);
+          }
           ctx.save();
           ctx.fillStyle = '#2ecc71';
           ctx.font = "bold 22px 'Velvelyne', serif";

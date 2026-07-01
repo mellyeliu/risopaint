@@ -24,11 +24,6 @@ const menuItems = {
     { label: 'Toggle fullscreen', action: 'fullscreen' },
     { label: 'Toggle dark mode', action: 'darkMode' },
   ],
-  help: [
-    { label: 'About risopaint', action: 'about' },
-    '—',
-    { label: 'Keyboard shortcuts', action: 'shortcuts' },
-  ],
 };
 
 const s = stylex.create({
@@ -79,7 +74,7 @@ const s = stylex.create({
       default: '0 14px 0 10px',
       [breakpoints.mobile]: '0 8px 0 4px',
     },
-    cursor: 'pointer',
+    cursor: 'default',
   },
   menuTitleDark: {
     color: '#ccc',
@@ -272,30 +267,9 @@ export default function MenuBar({ onAction }) {
   const { state, dispatch } = useStore();
   const [openMenu, setOpenMenu] = useState(null);
   const darkMode = state.darkMode;
-  const clickTimer = useRef(null);
-
-  const handleLogoClick = () => {
-    if (clickTimer.current) return;
-    clickTimer.current = setTimeout(() => {
-      clickTimer.current = null;
-      setOpenMenu(openMenu === 'home' ? null : 'home');
-    }, 250);
-  };
-
-  const handleLogoDblClick = () => {
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-    }
-    setOpenMenu(null);
-    sessionStorage.removeItem('risopaint-route');
-    history.pushState(null, '', '/');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  };
 
   const handleAction = (action) => {
     setOpenMenu(null);
-    // Navigate back to canvas for canvas-specific actions
     const canvasActions = ['new', 'undo', 'clear', 'zoomIn', 'zoomOut', 'zoomReset', 'export', 'submit'];
     if (canvasActions.includes(action) && state.showGallery) {
       dispatch({ type: 'SET_SHOW_GALLERY', value: false });
@@ -312,8 +286,6 @@ export default function MenuBar({ onAction }) {
         dispatch({ type: 'SET_DARK_MODE', value: !state.darkMode });
         document.body.style.background = !state.darkMode ? '#202020' : '#d8d8d8';
         break;
-      case 'about': alert('❀ risopaint\n\nA riso-textured paint tool.\nDraw, stamp, drop, share.'); break;
-      case 'shortcuts': alert('⌘Z — Undo\n⌘+/− — Zoom\nArrow keys — Navigate scenes\nEsc — Close'); break;
       default: onAction?.(action); break;
     }
   };
@@ -322,36 +294,12 @@ export default function MenuBar({ onAction }) {
     <div {...stylex.props(s.menuBar, darkMode && s.menuBarDark)}>
       <div {...stylex.props(s.grain)} />
 
-      <span
-        {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}
-        onClick={handleLogoClick}
-        onDoubleClick={handleLogoDblClick}
-      >
+      <span {...stylex.props(s.menuTitle, darkMode && s.menuTitleDark)}>
         ❀ risopaint
-        {openMenu === 'home' && (
-          <Dropdown
-            items={[
-              { label: 'Home', action: 'nav-home' },
-              { label: 'Back to canvas', action: 'nav-canvas' },
-            ]}
-            darkMode={darkMode}
-            onAction={(action) => {
-              setOpenMenu(null);
-              if (action === 'nav-canvas') {
-                if (state.showGallery) dispatch({ type: 'SET_SHOW_GALLERY', value: false });
-              } else if (action === 'nav-home') {
-                sessionStorage.removeItem('risopaint-route');
-                history.pushState(null, '', '/');
-                window.dispatchEvent(new PopStateEvent('popstate'));
-              }
-            }}
-            onClose={() => setOpenMenu(null)}
-          />
-        )}
       </span>
 
       {Object.keys(menuItems).map(menu => {
-        const hideOnSmall = menu === 'view' || menu === 'help';
+        const hideOnSmall = menu === 'view';
         return (
           <span
             key={menu}
@@ -381,6 +329,17 @@ export default function MenuBar({ onAction }) {
         onClick={() => dispatch({ type: 'SET_SHOW_GALLERY', value: !state.showGallery })}
       >
         gallery
+      </span>
+
+      <span
+        {...stylex.props(s.menuItem, s.menuItemPointer, darkMode && s.menuItemDark)}
+        onClick={() => {
+          sessionStorage.removeItem('risopaint-route');
+          history.pushState(null, '', '/game');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }}
+      >
+        game
       </span>
 
       <div {...stylex.props(s.menuSpacer)} />

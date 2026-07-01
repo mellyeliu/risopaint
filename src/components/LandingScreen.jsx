@@ -334,15 +334,20 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
     ];
 
     const chapterDoors = [];
-    const chapterCount = 5;
-    const chapterSpacing = 55;
-    const chaptersWidth = (chapterCount - 1) * chapterSpacing;
-    const chaptersStartX = outerW / 2 - chaptersWidth / 2;
-    const ledgeY = groundY - 55;
+    const chapterCount = 10;
+    const perRow = 5;
+    const chapterSpacing = 75;
+    const rowWidth = (perRow - 1) * chapterSpacing;
+    const row1Y = groundY - 55;
+    const row2Y = groundY - 150;
+    const rowStartX = outerW / 2 - rowWidth / 2;
     for (let i = 0; i < chapterCount; i++) {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const rowY = row === 0 ? row1Y : row2Y;
       chapterDoors.push({
-        x: chaptersStartX + i * chapterSpacing,
-        y: ledgeY, // doors sit on the ledge
+        x: rowStartX + col * chapterSpacing,
+        y: rowY,
         label: `ch. ${i + 1}`,
         color: '#999',
         action: `chapter-${i + 1}`,
@@ -357,10 +362,12 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       action: 'back',
       locked: false,
     });
-    // Ledge platform for chapter select
-    const ledgeWidth = chaptersWidth + 70;
-    const chapterLedge = Bodies.rectangle(outerW / 2, ledgeY, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
-    grounds.add(chapterLedge.id);
+    // Ledge platforms — two rows
+    const ledgeWidth = rowWidth + 70;
+    const chapterLedge1 = Bodies.rectangle(outerW / 2, row1Y, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
+    const chapterLedge2 = Bodies.rectangle(outerW / 2, row2Y, ledgeWidth, 10, { isStatic: true, friction: 0.8 });
+    grounds.add(chapterLedge1.id);
+    grounds.add(chapterLedge2.id);
 
     // Tool toggle + dark mode — bottom right inside box
     const iconY = boxY + boxH - 18;
@@ -741,7 +748,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
                 st.strokeBodies.forEach(sb => sb.bodies.forEach(b => Composite.remove(engine.world, b)));
                 st.strokeBodies = [];
                 st.strokes = [];
-                Composite.add(engine.world, chapterLedge);
+                Composite.add(engine.world, [chapterLedge1, chapterLedge2]);
                 Body.setPosition(player,{x:boxX+40,y:groundY-30});
                 Body.setVelocity(player,{x:0,y:0});
               }else if(door.action==='back'){
@@ -750,7 +757,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
                 st.strokeBodies.forEach(sb => sb.bodies.forEach(b => Composite.remove(engine.world, b)));
                 st.strokeBodies = [];
                 st.strokes = [];
-                Composite.remove(engine.world, chapterLedge);
+                Composite.remove(engine.world, [chapterLedge1, chapterLedge2]);
                 Body.setPosition(player,{x:outerW/2,y:groundY-30});
                 Body.setVelocity(player,{x:0,y:0});
               }else if(door.action==='freeform'){
@@ -768,7 +775,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
       }
 
       const jp=keys.ArrowUp||keys.w;
-      if(jp&&!st.wasJump&&st.jumpCount<1&&!enteringDoor){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
+      if(jp&&!st.wasJump&&st.jumpCount<2&&!enteringDoor){Body.setVelocity(player,{x:vx,y:jumpVel});st.jumpCount++;}
       else{Body.setVelocity(player,{x:vx,y:player.velocity.y});}
       st.wasJump=jp;
 
@@ -778,7 +785,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         st.fadeAlpha = 0;
         st.fadeCallback = () => {
           st.mode='main';st.selected=null;
-          Composite.remove(engine.world, chapterLedge);
+          Composite.remove(engine.world, [chapterLedge1, chapterLedge2]);
           Body.setPosition(player,{x:outerW/2,y:groundY-30});
           Body.setVelocity(player,{x:0,y:0});
           st.fadeDir = -1;
@@ -895,7 +902,7 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         drawDoor(ctx, door.x, doorGround, doorW, doorH, door.label, door.color, door.locked || false, darkMode);
       }
 
-      // Draw ledge line in chapter mode
+      // Draw ledge lines in chapter mode
       if (st.mode === 'chapters') {
         ctx.save();
         ctx.strokeStyle = '#000';
@@ -903,9 +910,15 @@ export default function LandingScreen({ darkMode, onSelect, onToggleDark }) {
         ctx.lineCap = 'round';
         const ledgeLeft = outerW / 2 - ledgeWidth / 2;
         const ledgeRight = outerW / 2 + ledgeWidth / 2;
+        // Bottom row ledge
         ctx.beginPath();
-        ctx.moveTo(ledgeLeft, ledgeY);
-        ctx.quadraticCurveTo(outerW / 2, ledgeY - 1, ledgeRight, ledgeY + 0.5);
+        ctx.moveTo(ledgeLeft, row1Y);
+        ctx.quadraticCurveTo(outerW / 2, row1Y - 1, ledgeRight, row1Y + 0.5);
+        ctx.stroke();
+        // Top row ledge
+        ctx.beginPath();
+        ctx.moveTo(ledgeLeft, row2Y);
+        ctx.quadraticCurveTo(outerW / 2, row2Y - 1, ledgeRight, row2Y + 0.5);
         ctx.stroke();
         ctx.restore();
       }

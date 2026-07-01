@@ -392,10 +392,28 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
 
   const needsFullRedraw = !state.smearMode || !canvas._hasDrawn || strokes.length === 0;
 
-  // Cache non-animated strokes (everything except crayon in live mode)
-  const hasCrayon = state.liveMode && strokes.some(s => s.type === 'crayon');
+  // Crayon and stamp strokes animate in live mode — exclude from cache
+  const hasAnimated = state.liveMode && strokes.some(s => s.type === 'crayon' || s.type === 'stamp');
 
-  if (strokeCacheCount !== strokes.length || strokeCacheW !== w || strokeCacheH !== h || (hasCrayon && !strokeCache._splitMode) || (!hasCrayon && strokeCache?._splitMode)) {
+  const splitChanged = (hasAnimated && !strokeCache?._splitMode) || (!hasAnimated && strokeCache?._splitMode);
+  const sizeChanged = strokeCacheW !== w || strokeCacheH !== h;
+  const canIncrement = strokeCache && !sizeChanged && !splitChanged
+    && strokes.length === strokeCacheCount + 1;
+
+  if (canIncrement) {
+    // Just draw the new stroke onto existing cache (already has grain)
+    const newStroke = strokes[strokes.length - 1];
+    const skip = hasAnimated && (newStroke.type === 'crayon' || newStroke.type === 'stamp');
+    if (!skip) {
+      const cacheCtx = strokeCache.getContext('2d');
+      cacheCtx.save();
+      cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+      cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      drawStroke(cacheCtx, newStroke, state);
+      cacheCtx.restore();
+    }
+    strokeCacheCount = strokes.length;
+  } else if (strokeCacheCount !== strokes.length || sizeChanged || splitChanged) {
     if (!strokeCache) {
       strokeCache = document.createElement('canvas');
     }
@@ -405,13 +423,14 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
     cacheCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
     cacheCtx.drawImage(getGridPattern(w, h), 0, 0);
     for (let i = 0; i < strokes.length; i++) {
-      if (hasCrayon && strokes[i].type === 'crayon') continue;
+      if (hasAnimated && (strokes[i].type === 'crayon' || strokes[i].type === 'stamp')) continue;
       drawStroke(cacheCtx, strokes[i], state);
     }
+    applyGrain(cacheCtx, w, h, 25);
     strokeCacheCount = strokes.length;
     strokeCacheW = w;
     strokeCacheH = h;
-    strokeCache._splitMode = hasCrayon;
+    strokeCache._splitMode = hasAnimated;
   }
 
   ctx.clearRect(0, 0, w, h);
@@ -421,10 +440,11 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
   ctx.restore();
   canvas._hasDrawn = true;
 
-  // Draw animated crayon strokes fresh each frame
-  if (hasCrayon) {
+  // Draw animated strokes fresh each frame
+  if (hasAnimated) {
     for (let i = 0; i < strokes.length; i++) {
-      if (strokes[i].type === 'crayon') drawStroke(ctx, strokes[i], state);
+      const t = strokes[i].type;
+      if (t === 'crayon' || t === 'stamp') drawStroke(ctx, strokes[i], state);
     }
   }
 
@@ -446,8 +466,6 @@ export function redrawCanvas(canvas, strokes, currentStroke, state, previewPos, 
     ctx.drawImage(pixelCanvas, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
   }
-
-  if (!skipGrain) applyGrain(ctx, w, h, 25);
 }
 
 export function interpolateCells(lastKey, gx, gy, cellSet, cells) {

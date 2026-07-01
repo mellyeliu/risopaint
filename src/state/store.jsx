@@ -13,6 +13,7 @@ const initialState = {
   selectedStamp: null,
   scenes: [createScene('Scene 1')],
   currentSceneIndex: 0,
+  currentChapter: null,
   physicsOn: false,
   isDrawing: false,
   currentStroke: null,
@@ -221,6 +222,14 @@ function reducer(state, action) {
         ...state,
         scenes: newScenes,
         currentSceneIndex: Math.min(state.currentSceneIndex, newScenes.length - 1),
+      };
+      break;
+    case 'LOAD_LEVEL':
+      newState = {
+        ...state,
+        scenes: [{ ...createScene(action.name || 'Level'), strokes: action.strokes }],
+        currentSceneIndex: 0,
+        currentChapter: action.chapterIndex ?? null,
       };
       break;
     case 'NEW_PROJECT':
